@@ -1,0 +1,51 @@
+# Build artifacts
+*.o
+*.elf
+bootloader.bin
+os.img
+iso/
+*.iso
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Toolchain directories
+binutils-*/
+gcc-*/
+nasm-*/
+
+# Downloaded archives
+*.tar.gz
+
+# Build directory
+build/
+
+# Temporary files
+*.tmp
+*~
+*.bak
+*.orig
+
+# Dependency files
+*.d
+
+# Vim swap files (additional patterns)
+.*.swp
+.*.swo
+
+# Core dumps
+core*
+
+# IDE settings
+.vscode/settings.json
+.idea/workspace.xml
