@@ -25,17 +25,10 @@ multiboot_header:
     dd 25   ; height
     dd 0    ; depth (0 = any for text)
 
-; Multiboot header
-section .multiboot
-align 4
-dd 0x1BADB002            ; magic
-dd 0x00                  ; flags
-dd - (0x1BADB002 + 0x00) ; checksum
-
-section .text
 EXTERN kernel_main
 EXTERN __bss_start
 EXTERN __bss_end
+EXTERN __stack_top
 
 ; ============================================================================
 ; _start: Entered by either our stage2 or GRUB multiboot

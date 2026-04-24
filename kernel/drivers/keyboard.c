@@ -6,12 +6,7 @@
 #include <kernel/kernel.h>
 #include <kernel/console.h>
 #include <arch/x86/ports.h>
-#include <arch/x86/idt.h>
 #include <types.h>
-
-/* External declarations */
-extern void pic_unmask_irq(uint8_t irq);
-extern void ps2_write_cmd(uint8_t cmd);
 
 /* Keyboard buffer size */
 #define KB_BUF_SIZE     128

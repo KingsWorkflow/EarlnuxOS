@@ -8,7 +8,6 @@
 #include <kernel/kernel.h>
 #include <kernel/console.h>
 #include <arch/x86/ports.h>
-#include <lib/string.h>
 
 /* IDT entries array */
 static idt_entry_t idt_entries[IDT_ENTRIES];
@@ -114,23 +113,23 @@ void isr_machine_check(struct regs *r);
 void isr_simd_exception(struct regs *r);
 
 /* IRQ C handlers */
-void irq_timer(struct regs *r);
-void irq_keyboard(struct regs *r);
-void irq_cascade(struct regs *r);
-void irq_serial2(struct regs *r);
-void irq_serial1(struct regs *r);
-void irq_parallel2(struct regs *r);
-void irq_floppy(struct regs *r);
-void irq_parallel1(struct regs *r);
-void irq_rtc(struct regs *r);
-void irq_irq9(struct regs *r);
-void irq_irq10(struct regs *r);
-void irq_irq11(struct regs *r);
-void irq_ps2_mouse(struct regs *r);
-void irq_fpu(struct regs *r);
-void irq_ata_primary(struct regs *r);
-void irq_ata_secondary(struct regs *r);
-void irq_spurious(struct regs *r);
+void irq_timer(void);
+void irq_keyboard(void);
+void irq_cascade(void);
+void irq_serial2(void);
+void irq_serial1(void);
+void irq_parallel2(void);
+void irq_floppy(void);
+void irq_parallel1(void);
+void irq_rtc(void);
+void irq_irq9(void);
+void irq_irq10(void);
+void irq_irq11(void);
+void irq_ps2_mouse(void);
+void irq_fpu(void);
+void irq_ata_primary(void);
+void irq_ata_secondary(void);
+void irq_spurious(void);
 
 /* ==========================================================================
  * Register all ISR/IRQ handler pointers (called after idt_init)

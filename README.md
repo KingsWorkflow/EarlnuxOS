@@ -11,7 +11,6 @@ A modern hobby OS for x86 – built from scratch with a clean architecture.
 - [Prerequisites](#prerequisites)
 - [Building](#building)
 - [Running](#running)
-- [Troubleshooting](#troubleshooting)
 - [Project Status](#project-status)
 - [Contributing](#contributing)
 - [License](#license)
@@ -165,24 +164,7 @@ project-OS/
 
 ### Installing the Cross-Compiler
 
-**Option 1: Use pre-built i686-linux-gnu (Faster - Recommended)**
-
-On **Ubuntu/Debian/WSL**:
-
-```bash
-sudo apt install -y gcc-i686-linux-gnu binutils-i686-linux-gnu
-```
-
-Then update [Makefile](Makefile) line 5:
-```makefile
-CROSS_COMPILE = i686-linux-gnu-
-```
-
-This uses the standard Linux GNU toolchain configured for 32-bit x86. It works with our x86 bootloader and kernel code.
-
-**Option 2: Build i686-elf from source (Slower)**
-
-If you need the strict ELF ABI, build from source on **Ubuntu/Debian**:
+On **Ubuntu/Debian** you can build the toolchain:
 
 ```bash
 sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
@@ -195,7 +177,7 @@ mkdir build && cd build
 make -j$(nproc) && sudo make install
 cd ../..
 
-# GCC (takes 5-10 minutes)
+# GCC
 wget https://ftp.gnu.org/gnu/gcc/gcc-11.2.0/gcc-11.2.0.tar.gz
 tar -xzf gcc-11.2.0.tar.gz && cd gcc-11.2.0
 mkdir build && cd build
@@ -203,11 +185,9 @@ mkdir build && cd build
 make all-gcc -j$(nproc) && sudo make install-gcc
 ```
 
-> **Note**: GCC 11.2.0 may have segmentation faults during compilation on some systems. If so, use Option 1 (i686-linux-gnu) instead.
+On **macOS**: `brew install i686-elf-gcc nasm qemu` (if available via custom taps) or use MacPorts.
 
-**macOS**: `brew install i686-elf-gcc nasm qemu` (if available) or use MacPorts.
-
-**Windows (WSL2)**: Follow the Ubuntu/Debian instructions in WSL2.
+On **Windows**: Use WSL2 (Ubuntu) and follow the Linux instructions, or install a pre-built i686-elf toolchain.
 
 ## Building
 
@@ -222,8 +202,8 @@ make
 Generates:
 
 - `build/boot.bin` – Stage 1+2 bootloader binary (raw)
-- `build/ EarlnuxOS.elf` – Linked kernel ELF (higher-half, Multiboot)
-- `build/ EarlnuxOS.img` – 1.44 MiB floppy image ready to boot
+- `build/vibos.elf` – Linked kernel ELF (higher-half, Multiboot)
+- `build/vibos.img` – 1.44 MiB floppy image ready to boot
 
 Optional targets:
 
@@ -289,52 +269,6 @@ root@ EarlnuxOS:~# help
   halt              Halt system
 
 root@ EarlnuxOS:~#
-```
-
-## Troubleshooting
-
-### Build Issues
-
-**Error: `i686-elf-gcc: command not found` or `i686-linux-gnu-gcc: command not found`**
-
-- Install the cross-compiler (see [Prerequisites](#installing-the-cross-compiler))
-- Verify: `i686-linux-gnu-gcc --version` or `i686-elf-gcc --version`
-- If using i686-elf, ensure `/usr/local/bin` is in `$PATH`:
-  ```bash
-  echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc && source ~/.bashrc
-  ```
-
-**Error: `GCC internal error: Segmentation fault` during build**
-
-- This is a known issue with GCC 11.2.0 on some systems
-- **Solution**: Use the i686-linux-gnu toolchain instead (see Option 1 above):
-  ```bash
-  sudo apt install gcc-i686-linux-gnu binutils-i686-linux-gnu
-  # Edit Makefile line 5: CROSS_COMPILE = i686-linux-gnu-
-  make clean && make
-  ```
-
-**Error: `fatal error: kernel/types.h: No such file or directory`**
-
-- Ensure include paths are correct: files should use `#include <types.h>` not `#include <kernel/types.h>`
-- Check [include/](include/) directory structure
-
-**Error: `control reaches end of non-void function` warnings**
-
-- Ensure all code paths have explicit `return` statements
-- Initialize variables to avoid undefined behavior: `int x = 0;` not `int x;`
-
-### WSL / Ubuntu Issues
-
-**Permission denied: `/var/lib/dpkg/lock-frontend`**
-
-- Use `sudo`: `sudo apt install package-name`
-- Don't run `apt` as root without `sudo`
-
-**QEMU not installed or `qemu-system-i386: command not found`**
-
-```bash
-sudo apt install qemu-system-i386
 ```
 
 ## Project Status

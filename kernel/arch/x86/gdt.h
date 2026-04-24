@@ -61,32 +61,26 @@ void gdt_init(void);
 
 /* Load segment registers */
 static inline void load_kernel_cs(void) {
-    __asm__ volatile(
-        "pushl $0x8\n\t"
-        "pushl $1f\n\t"
-        "lretl\n\t"
-        "1:\n\t");
+    __asm__ volatile("ljmp %0, $1f\n1:" : : "i"(KERNEL_CS << 3));
 }
 
 static inline void load_kernel_ds(void) {
-    uint16_t sel = (uint16_t)(KERNEL_DS << 3);
     __asm__ volatile("movw %0, %%ds\n"
                      "movw %0, %%es\n"
                      "movw %0, %%fs\n"
                      "movw %0, %%gs\n"
                      "movw %0, %%ss"
-                     : : "r"(sel) : "memory");
+                     : : "i"(KERNEL_DS << 3) : "memory");
 }
 
 /* Reload data segments after changing privilege level */
 static inline void reload_segments(void) {
-    uint16_t sel = (uint16_t)(KERNEL_DS << 3);
     __asm__ volatile("movw %0, %%ds\n"
                      "movw %0, %%es\n"
                      "movw %0, %%fs\n"
                      "movw %0, %%gs\n"
                      "movw %0, %%ss"
-                     : : "r"(sel) : "memory");
+                     : : "i"(KERNEL_DS << 3) : "memory");
 }
 
 #endif /*  EarlnuxOS_ARCH_X86_GDT_H */

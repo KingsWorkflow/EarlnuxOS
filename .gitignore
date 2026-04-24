@@ -29,23 +29,3 @@ nasm-*/
 
 # Build directory
 build/
-
-# Temporary files
-*.tmp
-*~
-*.bak
-*.orig
-
-# Dependency files
-*.d
-
-# Vim swap files (additional patterns)
-.*.swp
-.*.swo
-
-# Core dumps
-core*
-
-# IDE settings
-.vscode/settings.json
-.idea/workspace.xml

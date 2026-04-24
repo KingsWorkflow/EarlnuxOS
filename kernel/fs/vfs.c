@@ -3,7 +3,7 @@
  * kernel/fs/vfs.c
  * ============================================================================ */
 
-#include <fs/vfs.h>
+#include <fs/fs.h>
 #include <kernel/kernel.h>
 #include <lib/string.h>
 #include <mm/mm.h>
@@ -85,8 +85,7 @@ int vfs_mount(const char *source, const char *target,
     mountpoint_t *mnt = (mountpoint_t *)kmalloc(sizeof(mountpoint_t));
     if (!mnt) return -1;
     memset(mnt, 0, sizeof(mountpoint_t));
-    strncpy(mnt->path, target, PATH_MAX - 1);
-    mnt->path[PATH_MAX - 1] = '\0';
+    strlcpy(mnt->path, target, PATH_MAX);
     mnt->root = root;
     mnt->fs = fs;
     mnt->flags = flags;
@@ -188,7 +187,7 @@ int vfs_readdir(int fd, dirent_t *buf, uint32_t count) {
  * ========================================================================== */
 int vfs_mkdir(const char *path, uint16_t mode) {
     if (!path) return -1;
-    const char *remainder = NULL;
+    const char *remainder;
     mountpoint_t *mnt = find_mount(path, &remainder);
     if (!mnt) return -1;
     if (!mnt->fs || !mnt->fs->mkdir) return -1;
@@ -200,7 +199,7 @@ int vfs_mkdir(const char *path, uint16_t mode) {
  * ========================================================================== */
 int vfs_unlink(const char *path) {
     if (!path) return -1;
-    const char *remainder = NULL;
+    const char *remainder;
     mountpoint_t *mnt = find_mount(path, &remainder);
     if (!mnt) return -1;
     if (!mnt->fs || !mnt->fs->unlink) return -1;
@@ -218,20 +217,12 @@ void vfs_init(void) {
 
 /* Path canonicalize stub */
 int path_canonicalize(const char *in, char *out, size_t len) {
-    if (len == 0) return -1;
-    size_t in_len = strlen(in);
-    if (in_len >= len) {
-        memcpy(out, in, len - 1);
-        out[len - 1] = '\0';
-    } else {
-        memcpy(out, in, in_len);
-        out[in_len] = '\0';
-    }
+    strlcpy(out, in, len);
     return 0;
 }
 int path_dirname(const char *path, char *out, size_t len) {
     const char *p = strrchr(path, '/');
-    if (!p) { out[0] = '/'; out[1] = '\0'; return 0; }
+    if (!p) { out[0] = '/\0'; return 0; }
     size_t n = p - path;
     if (n >= len) n = len - 1;
     memcpy(out, path, n);
@@ -241,14 +232,7 @@ int path_dirname(const char *path, char *out, size_t len) {
 int path_basename(const char *path, char *out, size_t len) {
     const char *p = strrchr(path, '/');
     if (!p) p = path; else p++;
-    size_t p_len = strlen(p);
-    if (p_len >= len) {
-        memcpy(out, p, len - 1);
-        out[len - 1] = '\0';
-    } else {
-        memcpy(out, p, p_len);
-        out[p_len] = '\0';
-    }
+    strlcpy(out, p, len);
     return 0;
 }
 bool path_is_absolute(const char *path) {
@@ -256,15 +240,15 @@ bool path_is_absolute(const char *path) {
 }
 
 /* Stubs */
-int vfs_rmdir(const char *path) { (void)path; return -1; }
-int vfs_rename(const char *old, const char *newpath) { (void)old; (void)newpath; return -1; }
-int vfs_symlink(const char *target, const char *linkpath) { (void)target; (void)linkpath; return -1; }
-int vfs_readlink(const char *path, char *buf, size_t len) { (void)path; (void)buf; (void)len; return -1; }
-int vfs_chmod(const char *path, uint16_t mode) { (void)path; (void)mode; return -1; }
-int vfs_chown(const char *path, uint32_t uid, uint32_t gid) { (void)path; (void)uid; (void)gid; return -1; }
-int vfs_stat(const char *path, stat_t *st) { (void)path; (void)st; return -1; }
-int vfs_fstat(int fd, stat_t *st) { (void)fd; (void)st; return -1; }
-int vfs_ioctl(int fd, uint32_t cmd, void *arg) { (void)fd; (void)cmd; (void)arg; return -1; }
-int vfs_mmap(int fd, uint32_t virt, size_t len, uint32_t flags) { (void)fd; (void)virt; (void)len; (void)flags; return -1; }
-int vfs_fsync(int fd) { (void)fd; return -1; }
-int vfs_ftruncate(int fd, uint64_t size) { (void)fd; (void)size; return -1; }
+int vfs_rmdir(const char *path) { return -1; }
+int vfs_rename(const char *old, const char *newpath) { return -1; }
+int vfs_symlink(const char *target, const char *linkpath) { return -1; }
+int vfs_readlink(const char *path, char *buf, size_t len) { return -1; }
+int vfs_chmod(const char *path, uint16_t mode) { return -1; }
+int vfs_chown(const char *path, uint32_t uid, uint32_t gid) { return -1; }
+int vfs_stat(const char *path, stat_t *st) { return -1; }
+int vfs_fstat(int fd, stat_t *st) { return -1; }
+int vfs_ioctl(int fd, uint32_t cmd, void *arg) { return -1; }
+int vfs_mmap(int fd, uint32_t virt, size_t len, uint32_t flags) { return -1; }
+int vfs_fsync(int fd) { return -1; }
+int vfs_ftruncate(int fd, uint64_t size) { return -1; }

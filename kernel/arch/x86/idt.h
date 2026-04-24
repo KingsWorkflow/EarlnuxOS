@@ -8,10 +8,6 @@
 
 #include <types.h>
 
-/* Forward declarations */
-struct regs;
-typedef struct regs regs_t;
-
 /* IDT entry count: 256 vectors (0-255) */
 #define IDT_ENTRIES      256
 

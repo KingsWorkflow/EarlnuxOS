@@ -26,7 +26,7 @@ typedef uint32_t            uid_t;
 typedef uint64_t            uint64_time_t;
 
 /* Boolean */
-typedef uint8_t bool;
+typedef int                 bool;
 #define true   1
 #define false  0
 #define TRUE   1

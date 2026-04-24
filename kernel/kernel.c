@@ -10,6 +10,37 @@
 #include <fs/vfs.h>
 
 /* ============================================================================
+ * Multiboot info structure (simplified)
+ * ============================================================================ */
+typedef struct PACKED multiboot_info {
+    uint32_t flags;
+    uint32_t mem_lower;     /* Kilobytes below 1MB */
+    uint32_t mem_upper;     /* Kilobytes above 1MB */
+    uint32_t boot_device;
+    uint32_t cmdline;
+    uint32_t mods_count;
+    uint32_t mods_addr;
+    /* GRUB memory map */
+    uint32_t mmap_length;
+    uint32_t mmap_addr;
+    uint32_t drives_length;
+    uint32_t drives_addr;
+    uint32_t config_table;
+    uint32_t boot_loader_name;
+    uint32_t apm_table;
+} multiboot_info_t;
+
+typedef struct PACKED mmap_entry {
+    uint32_t size;
+    uint64_t base;
+    uint64_t length;
+    uint32_t type;
+} mmap_entry_t;
+
+#define MB_FLAG_MMAP        BIT(6)
+#define MULTIBOOT_MAGIC_VAL 0x2BADB002u
+
+/* ============================================================================
  * Global kernel state
  * ============================================================================ */
 static multiboot_info_t *mb_info = NULL;
@@ -267,16 +298,6 @@ static int tokenize(char *str, char *argv[], int max_args) {
     }
     return argc;
 }
-
-/* ============================================================================
- * Stub implementations for missing functions
- * ============================================================================ */
-
-void klog(int level, const char *module, const char *fmt, ...) { (void)level; (void)module; (void)fmt; }
-void panic(const char *fmt, ...) { for (;;) ; }
-const char *ip4_to_str(ip4_addr_t ip) { (void)ip; return "0.0.0.0"; }
-fs_type_t *ramfs_get_type(void) { return NULL; }
-void ps_dump(void) { }
 
 /* ============================================================================
  * Shell Commands
@@ -564,17 +585,6 @@ static void shell_run(void) {
  * kernel_main - C entry point called from entry.asm
  * ============================================================================ */
 void kernel_main(uint32_t mb_magic, multiboot_info_t *info) {
-    // TEST: Direct VGA write to verify kernel is running
-    volatile char *vga = (volatile char*)0xB8000;
-    vga[0] = 'K'; vga[1] = 0x07;
-    vga[2] = 'E'; vga[3] = 0x07;
-    vga[4] = 'R'; vga[5] = 0x07;
-    vga[6] = 'N'; vga[7] = 0x07;
-    vga[8] = 'E'; vga[9] = 0x07;
-    vga[10] = 'L'; vga[11] = 0x07;
-    vga[12] = '!'; vga[13] = 0x07;
-    for (;;) { }
-
     /* Very first step: set up the VGA console (no deps) */
     console_init();
     console_clear();

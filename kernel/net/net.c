@@ -4,7 +4,6 @@
  * ============================================================================ */
 
 #include <kernel/kernel.h>
-#include <net/net.h>
 
 /* Stub implementations - return ENOSYS for now */
 

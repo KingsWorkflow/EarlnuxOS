@@ -4,6 +4,7 @@
  * ============================================================================ */
 
 #include <types.h>
+#include <stddef.h>
 
 /* Memory operations */
 void *memcpy(void *dest, const void *src, size_t n) {
@@ -198,17 +199,3 @@ char *itoa(int value, char *str, int base) {
 /* BCD to binary and binary to BCD (for RTC) */
 uint8_t bcd_to_bin(uint8_t bcd) { return (bcd & 0x0F) + ((bcd >> 4) * 10); }
 uint8_t bin_to_bcd(uint8_t bin) { return (uint8_t)(((bin / 10) << 4) | (bin % 10)); }
-
-/* BSD strlcpy */
-size_t strlcpy(char *dst, const char *src, size_t size) {
-    size_t len = strlen(src);
-    if (size == 0) return len;
-    if (len >= size) {
-        memcpy(dst, src, size - 1);
-        dst[size - 1] = '\0';
-    } else {
-        memcpy(dst, src, len);
-        dst[len] = '\0';
-    }
-    return len;
-}

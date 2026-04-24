@@ -2,7 +2,7 @@
 # Build system for x86 (i686) architecture
 
 # Toolchain
-CROSS_COMPILE = i686-linux-gnu-
+CROSS_COMPILE = i686-elf-
 CC = $(CROSS_COMPILE)gcc
 AS = $(CROSS_COMPILE)as
 LD = $(CROSS_COMPILE)ld
@@ -12,7 +12,7 @@ OBJCOPY = $(CROSS_COMPILE)objcopy
 
 # Architecture & Platform
 ARCH = i686
-TARGET =  EarlnuxOS
+TARGET = vibos
 
 # Directories
 BUILD_DIR = build
@@ -30,6 +30,7 @@ KERNEL_SOURCES = \
     $(KERNEL_DIR)/mm/vmm.c \
     $(KERNEL_DIR)/mm/heap.c \
     $(KERNEL_DIR)/fs/vfs.c \
+    $(KERNEL_DIR)/fs/ramfs.c \
     $(KERNEL_DIR)/fs/procfs.c \
     $(KERNEL_DIR)/fs/vibefs.c \
     $(KERNEL_DIR)/net/net.c \
@@ -50,12 +51,12 @@ KERNEL_SOURCES = \
     $(KERNEL_DIR)/lib/printf.c \
     $(KERNEL_DIR)/arch/x86/gdt.c \
     $(KERNEL_DIR)/arch/x86/idt.c \
-    $(KERNEL_DIR)/arch/x86/isr_handlers.c
+    $(KERNEL_DIR)/arch/x86/isr.c
 
 # Kernel assembly sources (linked into kernel ELF)
 KERNEL_ASM = \
     $(KERNEL_DIR)/arch/x86/entry.asm \
-    $(KERNEL_DIR)/arch/x86/isr_stubs.asm \
+    $(KERNEL_DIR)/arch/x86/isr.asm \
     $(KERNEL_DIR)/arch/x86/isr_common.asm
 
 # Object files
@@ -134,18 +135,10 @@ run: $(OS_IMG)
 debug: $(OS_IMG)
 	$(QEMU) -drive format=raw,file=$(OS_IMG) -m 128M -s -S
 
-# Create ISO image
-.PHONY: iso
-iso: $(KERNEL_BIN)
-	mkdir -p iso/boot/grub
-	cp $(KERNEL_BIN) iso/boot/kernel.bin
-	echo 'menuentry "EarlnuxOS" { multiboot /boot/kernel.bin }' > iso/boot/grub/grub.cfg
-	grub-mkrescue -o build/EarlnuxOS.iso iso
-
 # Clean build artifacts
 .PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR) iso
+	rm -rf $(BUILD_DIR)
 
 # Format code
 .PHONY: fmt

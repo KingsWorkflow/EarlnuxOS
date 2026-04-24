@@ -28,7 +28,7 @@ isr_common_handler:
     push gs
 
     ; Load the kernel data segment descriptor into segment registers
-    mov ax, 0x10                ; kernel data segment selector
+    mov ax, KERNEL_DS << 3      ; kernel data segment selector
     mov ds, ax
     mov es, ax
     mov fs, ax
@@ -47,7 +47,7 @@ isr_common_handler:
     pop ds
     popa
 
-    ; Remove int_no and err_code from stack (8 bytes)
-    add esp, 8
+    ; Remove int_no, err_code, eip, cs, eflags from stack (20 bytes)
+    add esp, 20
 
     iret

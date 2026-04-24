@@ -7,7 +7,7 @@
 OUTPUT_FORMAT(elf32-i386)
 
 /* Entry point: defined in entry.asm */
-ENTRY(_start)
+ENTRY(entry_point)
 
 /* Kernel virtual base address (higher-half) */
 #define KERNEL_VIRT_BASE  0xC0000000
@@ -15,8 +15,8 @@ ENTRY(_start)
 /* Physical load address (where kernel is loaded by bootloader) */
 #define KERNEL_PHYS_BASE  0x00100000
 
-/* Start of kernel virtual addresses */
-#define KERNEL_START      (KERNEL_VIRT_BASE + KERNEL_PHYS_BASE)
+/* Start of kernel code (after higher-half mapping offset) */
+#define KERNEL_START      (KERNEL_PHYS_BASE - KERNEL_VIRT_BASE)
 
 SECTIONS
 {
@@ -26,7 +26,7 @@ SECTIONS
 
     . = KERNEL_START;
 
-    .text : AT(ADDR(.text) - KERNEL_VIRT_BASE) {
+    .text : AT(ADDR(.text) + KERNEL_VIRT_BASE) {
         *(.multiboot)          /* Multiboot header (first for alignment) */
         *(.text)               /* Code sections */
         *(.text.*)
@@ -34,12 +34,12 @@ SECTIONS
         *(.rodata.*)
     }
 
-    .data : AT(ADDR(.data) - KERNEL_VIRT_BASE) {
+    .data : AT(ADDR(.data) + KERNEL_VIRT_BASE) {
         *(.data)
         *(.data.*)
     }
 
-    .bss : AT(ADDR(.bss) - KERNEL_VIRT_BASE) {
+    .bss : AT(ADDR(.bss) + KERNEL_VIRT_BASE) {
         __bss_start = .;
         *(COMMON)
         *(.bss)
@@ -50,7 +50,11 @@ SECTIONS
     /* Heap region (kernel dynamic memory) - placed after BSS */
     . = ALIGN(0x1000);
     __kernel_heap_start = .;
-    __kernel_heap_end = . + 0x10000000; /* 256 MB heap */
+    .kernel_heap (NOLOAD) : {
+        . = 0xC0000000 + 0x10000000; /* 256 MB heap at 0xD0000000 (virt) */
+        /* Actually this is just placemarker; heap managed separately */
+    }
+    __kernel_heap_end = .;
 
     /* Discard unnecessary sections */
     /DISCARD/ : {
