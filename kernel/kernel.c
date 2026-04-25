@@ -157,15 +157,31 @@ static void start_networking(void) {
 static char current_working_directory[PATH_MAX] = "/";
 
 static void resolve_path(const char *in, char *out) {
+    char temp[PATH_MAX];
     if (in[0] == '/') {
-        strncpy(out, in, PATH_MAX);
+        strncpy(temp, in, PATH_MAX);
     } else {
         if (strcmp(current_working_directory, "/") == 0) {
-            ksnprintf(out, PATH_MAX, "/%s", in);
+            ksnprintf(temp, PATH_MAX, "/%s", in);
         } else {
-            ksnprintf(out, PATH_MAX, "%s/%s", current_working_directory, in);
+            ksnprintf(temp, PATH_MAX, "%s/%s", current_working_directory, in);
         }
     }
+
+    /* Simple '..' normalization */
+    if (strstr(temp, "..")) {
+        char *p = strstr(temp, "..");
+        if (p > temp + 1) {
+            /* Find slash before the component before .. */
+            char *slash = p - 2; 
+            while (slash > temp && *slash != '/') slash--;
+            *slash = (slash == temp) ? '/' : '\0';
+            if (slash == temp) *(slash+1) = '\0';
+        } else {
+            strcpy(temp, "/");
+        }
+    }
+    strncpy(out, temp, PATH_MAX);
 }
 
 #define SHELL_BUF_SIZE 256
@@ -217,7 +233,31 @@ static int tokenize(char *str, char *argv[], int max_args) {
  * ============================================================================ */
 static void cmd_help(int argc, char *argv[]) {
     (void)argc; (void)argv;
-    kprintf("\nCommands: help, echo, clear, meminfo, netinfo, ls, cat, mkdir, rm, uptime, uname, reboot, halt\n");
+    console_set_color(VGA_ATTR(COLOR_LIGHT_CYAN, COLOR_BLACK));
+    kprintf("\n--- EarlnuxOS Help Menu ---\n\n");
+    console_set_color(VGA_DEFAULT_ATTR);
+    
+    kprintf("FileSystem:\n");
+    kprintf("  ls [path]          - List directory contents\n");
+    kprintf("  cd <path>          - Change current directory (supports ..)\n");
+    kprintf("  pwd                - Show current working directory\n");
+    kprintf("  mkdir <name>       - Create a new directory\n");
+    kprintf("  touch <file>       - Create an empty file\n");
+    kprintf("  write <file> <txt> - Create file and write text\n");
+    kprintf("  cat <file>         - Display file contents\n");
+    kprintf("  rm <file>          - Remove a file or directory\n\n");
+
+    kprintf("System:\n");
+    kprintf("  clear              - Clear the console screen\n");
+    kprintf("  meminfo            - Show memory & heap status\n");
+    kprintf("  netinfo            - Show network statistics\n");
+    kprintf("  uptime             - Show system uptime in ms\n");
+    kprintf("  uname              - Show OS name and version\n");
+    kprintf("  echo <text>        - Print text to console\n");
+    kprintf("  logout             - End current user session\n");
+    kprintf("  reboot / halt      - Restart or shut down system\n\n");
+
+    kprintf("Tip: Arithmetic (e.g. 5+5) is evaluated automatically.\n");
 }
 
 static void cmd_echo(int argc, char *argv[]) {
@@ -256,7 +296,7 @@ static void cmd_ls(int argc, char *argv[]) {
     int fd = vfs_open(path, O_RDONLY | O_DIRECTORY, 0);
     if (fd < 0) { kprintf("ls: cannot access '%s'\n", path); return; }
     dirent_t entries[32];
-    int n = vfs_readdir(fd, entries, 32);
+    int n = vfs_readdir(fd, entries, sizeof(entries));
     vfs_close(fd);
     for (int i = 0; i < n; i++) kprintf("  %s\n", entries[i].d_name);
 }
@@ -284,6 +324,31 @@ static void cmd_mkdir(int argc, char *argv[]) {
     if (vfs_mkdir(path, 0755) < 0) {
         kprintf("mkdir: cannot create directory '%s'\n", argv[1]);
     }
+}
+
+static void cmd_touch(int argc, char *argv[]) {
+    if (argc < 2) return;
+    char path[PATH_MAX];
+    resolve_path(argv[1], path);
+    int fd = vfs_open(path, O_WRONLY | O_CREAT, 0644);
+    if (fd >= 0) vfs_close(fd);
+    else kprintf("touch: cannot create '%s'\n", argv[1]);
+}
+
+static void cmd_write(int argc, char *argv[]) {
+    if (argc < 3) { kprintf("Usage: write <file> <text...>\n"); return; }
+    char path[PATH_MAX];
+    resolve_path(argv[1], path);
+    
+    int fd = vfs_open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) { kprintf("write: cannot open '%s'\n", path); return; }
+    
+    for (int i = 2; i < argc; i++) {
+        vfs_write(fd, argv[i], strlen(argv[i]));
+        if (i < argc - 1) vfs_write(fd, " ", 1);
+    }
+    vfs_write(fd, "\n", 1);
+    vfs_close(fd);
 }
 
 static void cmd_rm(int argc, char *argv[]) {
@@ -337,15 +402,24 @@ static void cmd_halt(int argc, char *argv[]) {
     for(;;) cpu_hlt();
 }
 
+static void cmd_logout(int argc, char *argv[]) {
+    (void)argc; (void)argv;
+    kprintf("Logging out...\n");
+    strcpy(current_working_directory, "/");
+}
+
 typedef struct { const char *name; void (*fn)(int, char **); } cmd_t;
 static const cmd_t commands[] = {
     {"help", cmd_help}, {"echo", cmd_echo}, {"clear", cmd_clear},
     {"meminfo", cmd_meminfo}, {"netinfo", cmd_netinfo}, {"ls", cmd_ls},
     {"cat", cmd_cat}, {"mkdir", cmd_mkdir}, {"rm", cmd_rm},
-    {"cd", cmd_cd}, {"pwd", cmd_pwd},
+    {"touch", cmd_touch}, {"write", cmd_write},
+    {"cd", cmd_cd}, {"pwd", cmd_pwd}, {"logout", cmd_logout},
     {"uptime", cmd_uptime}, {"uname", cmd_uname}, {"reboot", cmd_reboot},
     {"halt", cmd_halt}, {NULL, NULL}
 };
+
+
 
 static void shell_run(void) {
     char *argv[16];
@@ -353,7 +427,7 @@ static void shell_run(void) {
         console_set_color(VGA_ATTR(COLOR_LIGHT_GREEN, COLOR_BLACK));
         kprintf("%s@EarlnuxOS", user_get_current());
         console_set_color(VGA_DEFAULT_ATTR);
-        kprintf(":~# ");
+        kprintf(":%s# ", current_working_directory);
         int len = shell_readline(shell_input, SHELL_BUF_SIZE);
         if (len == 0) continue;
 
@@ -362,6 +436,8 @@ static void shell_run(void) {
         strcpy(raw_input, shell_input);
 
         int argc = tokenize(shell_input, argv, 16);
+        if (strcmp(argv[0], "logout") == 0) return; /* Break to login loop */
+        
         for (int i = 0; commands[i].name; i++) {
             if (strcmp(commands[i].name, argv[0]) == 0) {
                 commands[i].fn(argc, argv);
@@ -417,10 +493,10 @@ void kernel_main(uint32_t mb_magic, multiboot_info_t *info) {
     extern void user_init(void);
     extern int user_login_sequence(void);
     user_init();
-    user_login_sequence();
     
-    /* Welcome dashboard */
-    print_welcome();
-
-    shell_run();
+    while (1) {
+        user_login_sequence();
+        print_welcome();
+        shell_run();
+    }
 }

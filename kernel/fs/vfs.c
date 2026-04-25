@@ -175,12 +175,12 @@ int64_t vfs_seek(int fd, int64_t offset, int whence) {
 /* ==========================================================================
  * Directory operations
  * ========================================================================== */
-int vfs_readdir(int fd, dirent_t *buf, uint32_t count) {
+int vfs_readdir(int fd, dirent_t *buf, size_t len) {
     if (fd < 0 || fd >= FD_MAX || !fd_table[fd]) return -1;
     file_t *file = fd_table[fd];
     if (!(file->flags & O_DIRECTORY)) return -1;
     if (!file->ops || !file->ops->readdir) return -1;
-    return file->ops->readdir(file, buf, count);
+    return file->ops->readdir(file, buf, len);
 }
 
 /* ==========================================================================
