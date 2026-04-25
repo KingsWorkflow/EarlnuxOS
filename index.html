@@ -95,16 +95,31 @@
     <script>
         function v86_loaded() {
             var status = document.getElementById("status");
-            if (status) status.innerText = "Status: Engine Loaded. Initializing Hardware...";
-            initEmulator();
+            if (status) status.innerText = "Status: Engine Loaded. Searching for Hardware Starter...";
+            
+            setTimeout(function() {
+                // Safer universal search for the V86 constructor
+                var starter = null;
+                if (typeof window.V86Starter === "function") starter = window.V86Starter;
+                else if (window.v86 && typeof window.v86.V86Starter === "function") starter = window.v86.V86Starter;
+                else if (typeof V86Starter === "function") starter = V86Starter;
+                
+                if (starter) {
+                    status.innerText = "Status: Hardware Starter Found. Initializing...";
+                    initEmulator(starter);
+                } else {
+                    status.innerText = "Critical Error: Emulator engine loaded but could not be initialized.";
+                    console.error("V86Starter not found. Global keys:", Object.keys(window).filter(k => k.toLowerCase().includes('v86')));
+                }
+            }, 200);
         }
 
         function v86_error() {
             var status = document.getElementById("status");
-            if (status) status.innerHTML = "Critical Error: Could not load the emulator engine. Try refreshing the page.";
+            if (status) status.innerHTML = "Critical Error: Could not load the emulator engine.";
         }
 
-        function initEmulator() {
+        function initEmulator(Starter) {
             var status = document.getElementById("status");
             
             var settings = {
@@ -119,7 +134,7 @@
             };
 
             try {
-                var emulator = new V86Starter(settings);
+                var emulator = new Starter(settings);
                 
                 emulator.add_listener("emulator-ready", function() {
                     status.innerText = "Status: Hardware Ready. Booting EarlnuxOS...";
@@ -139,7 +154,7 @@
         }
     </script>
 
-    <!-- v86 Emulator Library - Using JSDelivr -->
+    <!-- v86 Emulator Library - Using verified NPM mirror -->
     <script id="v86_script" src="https://cdn.jsdelivr.net/npm/v86/build/libv86.js" onload="v86_loaded()" onerror="v86_error()"></script>
 </body>
 </html>
