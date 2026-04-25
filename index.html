@@ -101,7 +101,9 @@
                 // Safer universal search for the V86 constructor
                 var starter = null;
                 if (typeof window.V86Starter === "function") starter = window.V86Starter;
+                else if (typeof window.V86 === "function") starter = window.V86;
                 else if (window.v86 && typeof window.v86.V86Starter === "function") starter = window.v86.V86Starter;
+                else if (window.V86 && typeof window.V86.V86Starter === "function") starter = window.V86.V86Starter;
                 else if (typeof V86Starter === "function") starter = V86Starter;
                 
                 if (starter) {
