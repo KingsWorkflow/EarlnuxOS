@@ -356,11 +356,8 @@ typedef struct sk_buff {
     };
 } sk_buff_t;
 
-sk_buff_t *skb_alloc(size_t size);
-void       skb_free(sk_buff_t *skb);
-uint8_t   *skb_push(sk_buff_t *skb, size_t len);
-uint8_t   *skb_pull(sk_buff_t *skb, size_t len);
-uint8_t   *skb_put(sk_buff_t *skb, size_t len);
+#define skb_alloc(size)  NULL
+#define skb_free(skb)    ((void)0)
 
 /* ============================================================================
  * Network stack init

@@ -6,7 +6,11 @@
 #ifndef  EarlnuxOS_FS_H
 #define  EarlnuxOS_FS_H
 
-#include <kernel/types.h>
+#include <types.h>
+
+/* Forward declarations */
+typedef struct mountpoint mountpoint_t;
+typedef struct file file_t;
 
 /* ============================================================================
  * File types and flags
@@ -160,6 +164,10 @@ typedef struct fs_type {
     void     (*umount)(struct fs_type *type);
     int      (*sync)(struct fs_type *type);
     void     (*statfs)(struct fs_type *type, uint64_t *total, uint64_t *free_b);
+    /* Path-based operations */
+    int      (*open)(mountpoint_t *mnt, const char *path, int flags, uint16_t mode, file_t *file);
+    int      (*mkdir)(mountpoint_t *mnt, const char *path, uint16_t mode);
+    int      (*unlink)(mountpoint_t *mnt, const char *path);
     struct fs_type *next;
 } fs_type_t;
 

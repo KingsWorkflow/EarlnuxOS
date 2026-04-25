@@ -1,53 +1,147 @@
 ; ============================================================================
-;  EarlnuxOS - Common Interrupt Handler (called by all ISR/IRQ stubs)
+;  EarlnuxOS - Interrupt Service Routine Stubs
 ; kernel/arch/x86/isr_common.asm
 ; ============================================================================
-; Stack layout upon entry from stub:
-;   [esp]     = return address (from call/jmp)
-;   [esp+4]   = int_no
-;   [esp+8]   = err_code (or dummy 0)
-;   [esp+12]  = eip  (pushed by CPU)
-;   [esp+16]  = cs   (pushed by CPU)
-;   [esp+20]  = eflags (pushed by CPU)
-; We push segment registers and general-purpose registers to build regs struct.
-; Then call C function: void isr_dispatch(struct regs *r);
-; After return, restore registers and iret.
 
 [bits 32]
 
-section .text
-global isr_common_handler
-extern isr_dispatch
+; External C handlers
+extern isr_handler
+extern irq_handler
 
-isr_common_handler:
-    ; Save all general-purpose registers and segment registers
-    pusha                       ; pushes EAX, ECX, EDX, EBX, ESP(orig), EBP, ESI, EDI
-    push ds
-    push es
-    push fs
-    push gs
+; Macro for Exceptions (no error code)
+%macro ISR_NOERR 1
+global isr%1
+isr%1:
+    cli
+    push dword 0
+    push dword %1
+    jmp isr_common_stub
+%endmacro
 
-    ; Load the kernel data segment descriptor into segment registers
-    mov ax, KERNEL_DS << 3      ; kernel data segment selector
+; Macro for Exceptions (with error code)
+%macro ISR_ERR 1
+global isr%1
+isr%1:
+    cli
+    push dword %1
+    jmp isr_common_stub
+%endmacro
+
+; Macro for Hardware IRQs
+%macro IRQ 2
+global irq%1
+irq%1:
+    cli
+    push dword 0
+    push dword %2
+    jmp irq_common_stub
+%endmacro
+
+; Standard ISR Stub
+isr_common_stub:
+    pusha                    ; Push EDI, ESI, EBP, ESP, EBX, EDX, ECX, EAX
+
+    mov ax, ds               ; Lower 16-bits of eax = ds
+    push eax                 ; Save the data segment descriptor
+
+    mov ax, 0x10             ; Load the kernel data segment descriptor
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    ; Push pointer to the current stack (which points to regs) as argument
-    mov eax, esp
+    push esp                 ; Push a pointer to the registers (struct regs *)
+    call isr_handler
+    add esp, 4               ; Clean up the stack
+
+    pop eax                  ; Restore the original data segment descriptor
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    popa                     ; Pop EDI, ESI, EBP, etc
+    add esp, 8               ; Cleans up the pushed error code and pushed ISR number
+    iret                     ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+
+; Hardware IRQ Stub
+irq_common_stub:
+    pusha                    ; Push EDI, ESI, EBP, etc
+
+    mov ax, ds               ; Save data segment
     push eax
-    call isr_dispatch
-    add esp, 4                  ; clean up argument
 
-    ; Restore segment registers and general registers
-    pop gs
-    pop fs
-    pop es
-    pop ds
+    mov ax, 0x10             ; Load kernel data segment
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    push esp                 ; Pointer to regs
+    call irq_handler
+    add esp, 4
+
+    pop eax                  ; Restore data segment
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
     popa
+    add esp, 8
+    iret                     ; iret will restore the IF (interrupt flag) automatically
 
-    ; Remove int_no, err_code, eip, cs, eflags from stack (20 bytes)
-    add esp, 20
+; Define all 32 Exceptions
+ISR_NOERR 0
+ISR_NOERR 1
+ISR_NOERR 2
+ISR_NOERR 3
+ISR_NOERR 4
+ISR_NOERR 5
+ISR_NOERR 6
+ISR_NOERR 7
+ISR_ERR   8
+ISR_NOERR 9
+ISR_ERR   10
+ISR_ERR   11
+ISR_ERR   12
+ISR_ERR   13
+ISR_ERR   14
+ISR_NOERR 15
+ISR_NOERR 16
+ISR_ERR   17
+ISR_NOERR 18
+ISR_NOERR 19
+ISR_NOERR 20
+ISR_NOERR 21
+ISR_NOERR 22
+ISR_NOERR 23
+ISR_NOERR 24
+ISR_NOERR 25
+ISR_NOERR 26
+ISR_NOERR 27
+ISR_NOERR 28
+ISR_NOERR 29
+ISR_ERR   30
+ISR_NOERR 31
 
-    iret
+; Define 16 Hardware IRQs (32-47)
+IRQ 0, 32
+IRQ 1, 33
+IRQ 2, 34
+IRQ 3, 35
+IRQ 4, 36
+IRQ 5, 37
+IRQ 6, 38
+IRQ 7, 39
+IRQ 8, 40
+IRQ 9, 41
+IRQ 10, 42
+IRQ 11, 43
+IRQ 12, 44
+IRQ 13, 45
+IRQ 14, 46
+IRQ 15, 47
+
+section .note.GNU-stack noalloc noexec nowrite progbits

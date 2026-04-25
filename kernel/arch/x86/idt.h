@@ -7,27 +7,28 @@
 #define  EarlnuxOS_ARCH_X86_IDT_H
 
 #include <types.h>
+#include <kernel/regs.h>
 
 /* IDT entry count: 256 vectors (0-255) */
 #define IDT_ENTRIES      256
 
 /* IRQ remapping offset (after CPU exceptions) */
-#define IRQ0             32  /* Timer */
-#define IRQ1             33  /* Keyboard */
-#define IRQ2             34  /* Cascade (not used) */
-#define IRQ3             35  /* Serial port 2 */
-#define IRQ4             36  /* Serial port 1 */
-#define IRQ5             37  /* Parallel port 2 */
-#define IRQ6             38  /* Floppy disk */
-#define IRQ7             39  /* Parallel port 1 */
-#define IRQ8             40  /* CMOS real-time clock */
-#define IRQ9             41  /* Free for peripherals */
-#define IRQ10            42  /* Free for peripherals */
-#define IRQ11            43  /* Free for peripherals */
-#define IRQ12            44  /* PS/2 mouse */
-#define IRQ13            45  /* FPU/coprocessor */
-#define IRQ14            46  /* Primary ATA hard disk */
-#define IRQ15            47  /* Secondary ATA hard disk */
+#define INT_IRQ0          32  /* Timer */
+#define INT_IRQ1          33  /* Keyboard */
+#define INT_IRQ2          34  /* Cascade (not used) */
+#define INT_IRQ3          35  /* Serial port 2 */
+#define INT_IRQ4          36  /* Serial port 1 */
+#define INT_IRQ5          37  /* Parallel port 2 */
+#define INT_IRQ6          38  /* Floppy disk */
+#define INT_IRQ7          39  /* Parallel port 1 */
+#define INT_IRQ8          40  /* CMOS real-time clock */
+#define INT_IRQ9          41  /* Free for peripherals */
+#define INT_IRQ10         42  /* Free for peripherals */
+#define INT_IRQ11         43  /* Free for peripherals */
+#define INT_IRQ12         44  /* PS/2 mouse */
+#define INT_IRQ13         45  /* FPU/coprocessor */
+#define INT_IRQ14         46  /* Primary ATA hard disk */
+#define INT_IRQ15         47  /* Secondary ATA hard disk */
 
 /* IDT gate types */
 #define IDT_GATE_TYPE(x) ((x) & 0x0F)
@@ -58,19 +59,8 @@ typedef struct PACKED {
 extern void (*isr_handlers[IDT_ENTRIES])(struct regs *);
 
 /* ========================================================================== */
-/* Register State Structure (pushed by common handler) */
+/* Register State Structure (defined in regs.h) */
 /* ========================================================================== */
-typedef struct regs {
-    uint32_t ds;      /* Data segment selector (pushed by common handler) */
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; /* Pushed by pusha */
-    uint32_t int_no;  /* Interrupt number */
-    uint32_t err_code;/* Error code (if applicable) */
-    uint32_t eip;     /* Instruction pointer */
-    uint32_t cs;      /* Code segment */
-    uint32_t eflags;  /* Flags */
-    uint32_t user_esp;/* User stack pointer (if privilege change) */
-    uint32_t user_ss; /* User stack segment (if privilege change) */
-} regs_t;
 
 /* Initialize and install IDT */
 void idt_init(void);

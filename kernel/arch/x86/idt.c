@@ -1,178 +1,96 @@
-/* ============================================================================
- *  EarlnuxOS - Interrupt Descriptor Table Implementation
- * kernel/arch/x86/idt.c
- * ============================================================================ */
-
-#include <arch/x86/idt.h>
-#include <arch/x86/gdt.h>
 #include <kernel/kernel.h>
-#include <kernel/console.h>
-#include <arch/x86/ports.h>
+#include "idt.h"
+#include <string.h>
 
-/* IDT entries array */
-static idt_entry_t idt_entries[IDT_ENTRIES];
+static idt_entry_t idt[IDT_ENTRIES];
+static idt_ptr_t   idtp;
 
-/* IDT pointer */
-static idt_ptr_t idt_ptr;
+/* External assembly stubs */
+extern void isr0();  extern void isr1();  extern void isr2();  extern void isr3();
+extern void isr4();  extern void isr5();  extern void isr6();  extern void isr7();
+extern void isr8();  extern void isr9();  extern void isr10(); extern void isr11();
+extern void isr12(); extern void isr13(); extern void isr14(); extern void isr15();
+extern void isr16(); extern void isr17(); extern void isr18(); extern void isr19();
+extern void isr20(); extern void isr21(); extern void isr22(); extern void isr23();
+extern void isr24(); extern void isr25(); extern void isr26(); extern void isr27();
+extern void isr28(); extern void isr29(); extern void isr30(); extern void isr31();
 
-/* ISR handler array (populated by idt_register_handlers) */
-void (*isr_handlers[IDT_ENTRIES])(struct regs *);
+extern void irq0();  extern void irq1();  extern void irq2();  extern void irq3();
+extern void irq4();  extern void irq5();  extern void irq6();  extern void irq7();
+extern void irq8();  extern void irq9();  extern void irq10(); extern void irq11();
+extern void irq12(); extern void irq13(); extern void irq14(); extern void irq15();
 
-/* ==========================================================================
- * Set IDT gate
- * ========================================================================== */
 void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
-    idt_entries[num].base_low  = base & 0xFFFF;
-    idt_entries[num].base_high = (base >> 16) & 0xFFFF;
-    idt_entries[num].sel       = sel;
-    idt_entries[num].zero      = 0;
-    idt_entries[num].flags     = flags;
+    idt[num].base_low  = (base & 0xFFFF);
+    idt[num].base_high = (base >> 16) & 0xFFFF;
+    idt[num].sel       = sel;
+    idt[num].zero      = 0;
+    idt[num].flags     = flags;
 }
 
-/* ==========================================================================
- * Install a single IDT entry with segment selector and flags
- * ========================================================================== */
-void idt_install_gate(uint8_t vector, uint32_t handler, uint8_t flags) {
-    idt_set_gate(vector, handler, KERNEL_CS << 3, flags);
-}
-
-/* ==========================================================================
- * Initialize IDT
- * ========================================================================== */
 void idt_init(void) {
-    /* Zero out IDT entries */
-    memset(&idt_entries, 0, sizeof(idt_entries));
+    idtp.limit = (sizeof(idt_entry_t) * IDT_ENTRIES) - 1;
+    idtp.base  = (uint32_t)&idt;
 
-    /* Set up IDT pointer */
-    idt_ptr.limit = (uint16_t)(sizeof(idt_entries) - 1);
-    idt_ptr.base  = (uint32_t)&idt_entries;
-
-    /* Install CPU exception handlers (ISRs 0-31) */
-    idt_install_gate(0,  (uint32_t)isr_stub_divide_error,         IDT_GATE_INTERRUPT);
-    idt_install_gate(1,  (uint32_t)isr_stub_debug,                IDT_GATE_INTERRUPT);
-    idt_install_gate(2,  (uint32_t)isr_stub_nmi,                  IDT_GATE_INTERRUPT);
-    idt_install_gate(3,  (uint32_t)isr_stub_breakpoint,           IDT_GATE_INTERRUPT);
-    idt_install_gate(4,  (uint32_t)isr_stub_overflow,             IDT_GATE_INTERRUPT);
-    idt_install_gate(5,  (uint32_t)isr_stub_bound_range,          IDT_GATE_INTERRUPT);
-    idt_install_gate(6,  (uint32_t)isr_stub_invalid_opcode,       IDT_GATE_INTERRUPT);
-    idt_install_gate(7,  (uint32_t)isr_stub_device_not_available, IDT_GATE_INTERRUPT);
-    idt_install_gate(8,  (uint32_t)isr_stub_double_fault,         IDT_GATE_INTERRUPT | 0x60); /* DPL=3 for double fault? Actually typically 0 */
-    idt_install_gate(9,  (uint32_t)isr_stub_coproc_segment_overrun, IDT_GATE_INTERRUPT);
-    idt_install_gate(10, (uint32_t)isr_stub_invalid_tss,          IDT_GATE_INTERRUPT);
-    idt_install_gate(11, (uint32_t)isr_stub_segment_not_present,  IDT_GATE_INTERRUPT);
-    idt_install_gate(12, (uint32_t)isr_stub_stack_exception,      IDT_GATE_INTERRUPT);
-    idt_install_gate(13, (uint32_t)isr_stub_general_protection,   IDT_GATE_INTERRUPT);
-    idt_install_gate(14, (uint32_t)isr_stub_page_fault,           IDT_GATE_INTERRUPT);
-    idt_install_gate(16, (uint32_t)isr_stub_x87_floating_point,   IDT_GATE_INTERRUPT);
-    idt_install_gate(17, (uint32_t)isr_stub_alignment_check,      IDT_GATE_INTERRUPT);
-    idt_install_gate(18, (uint32_t)isr_stub_machine_check,        IDT_GATE_INTERRUPT);
-    idt_install_gate(19, (uint32_t)isr_stub_simd_exception,       IDT_GATE_INTERRUPT);
-
-    /* Install IRQ handlers (32-47) */
-    idt_install_gate(IRQ0,  (uint32_t)irq_stub_timer,          IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ1,  (uint32_t)irq_stub_keyboard,       IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ2,  (uint32_t)irq_stub_cascade,        IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ3,  (uint32_t)irq_stub_serial2,        IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ4,  (uint32_t)irq_stub_serial1,        IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ5,  (uint32_t)irq_stub_parallel2,      IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ6,  (uint32_t)irq_stub_floppy,         IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ7,  (uint32_t)irq_stub_parallel1,      IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ8,  (uint32_t)irq_stub_rtc,            IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ9,  (uint32_t)irq_stub_irq9,           IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ10, (uint32_t)irq_stub_irq10,          IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ11, (uint32_t)irq_stub_irq11,          IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ12, (uint32_t)irq_stub_ps2_mouse,      IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ13, (uint32_t)irq_stub_fpu,            IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ14, (uint32_t)irq_stub_ata_primary,    IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ15, (uint32_t)irq_stub_ata_secondary,  IDT_GATE_INTERRUPT);
-    idt_install_gate(IRQ15 + 1, (uint32_t)irq_stub_spurious, IDT_GATE_INTERRUPT);
-
-    /* Load IDT */
-    __asm__ volatile("lidt %0" : : "m"(idt_ptr));
-}
-
-/* Forward declarations for C exception handlers */
-void isr_divide_error(struct regs *r);
-void isr_debug(struct regs *r);
-void isr_nmi(struct regs *r);
-void isr_breakpoint(struct regs *r);
-void isr_overflow(struct regs *r);
-void isr_bound_range(struct regs *r);
-void isr_invalid_opcode(struct regs *r);
-void isr_device_not_available(struct regs *r);
-void isr_double_fault(struct regs *r);
-void isr_coproc_segment_overrun(struct regs *r);
-void isr_invalid_tss(struct regs *r);
-void isr_segment_not_present(struct regs *r);
-void isr_stack_exception(struct regs *r);
-void isr_general_protection(struct regs *r);
-void isr_page_fault(struct regs *r);
-void isr_x87_floating_point(struct regs *r);
-void isr_alignment_check(struct regs *r);
-void isr_machine_check(struct regs *r);
-void isr_simd_exception(struct regs *r);
-
-/* IRQ C handlers */
-void irq_timer(void);
-void irq_keyboard(void);
-void irq_cascade(void);
-void irq_serial2(void);
-void irq_serial1(void);
-void irq_parallel2(void);
-void irq_floppy(void);
-void irq_parallel1(void);
-void irq_rtc(void);
-void irq_irq9(void);
-void irq_irq10(void);
-void irq_irq11(void);
-void irq_ps2_mouse(void);
-void irq_fpu(void);
-void irq_ata_primary(void);
-void irq_ata_secondary(void);
-void irq_spurious(void);
-
-/* ==========================================================================
- * Register all ISR/IRQ handler pointers (called after idt_init)
- * ========================================================================== */
-void idt_register_handlers(void) {
-    memset(isr_handlers, 0, sizeof(isr_handlers));
+    memset(&idt, 0, sizeof(idt_entry_t) * IDT_ENTRIES);
 
     /* Exceptions */
-    isr_handlers[0]  = isr_divide_error;
-    isr_handlers[1]  = isr_debug;
-    isr_handlers[2]  = isr_nmi;
-    isr_handlers[3]  = isr_breakpoint;
-    isr_handlers[4]  = isr_overflow;
-    isr_handlers[5]  = isr_bound_range;
-    isr_handlers[6]  = isr_invalid_opcode;
-    isr_handlers[7]  = isr_device_not_available;
-    isr_handlers[8]  = isr_double_fault;
-    isr_handlers[10] = isr_invalid_tss;
-    isr_handlers[11] = isr_segment_not_present;
-    isr_handlers[12] = isr_stack_exception;
-    isr_handlers[13] = isr_general_protection;
-    isr_handlers[14] = isr_page_fault;
-    isr_handlers[16] = isr_x87_floating_point;
-    isr_handlers[17] = isr_alignment_check;
-    isr_handlers[18] = isr_machine_check;
-    isr_handlers[19] = isr_simd_exception;
+    idt_set_gate(0,  (uint32_t)isr0,  0x08, 0x8E);
+    idt_set_gate(1,  (uint32_t)isr1,  0x08, 0x8E);
+    idt_set_gate(2,  (uint32_t)isr2,  0x08, 0x8E);
+    idt_set_gate(3,  (uint32_t)isr3,  0x08, 0x8E);
+    idt_set_gate(4,  (uint32_t)isr4,  0x08, 0x8E);
+    idt_set_gate(5,  (uint32_t)isr5,  0x08, 0x8E);
+    idt_set_gate(6,  (uint32_t)isr6,  0x08, 0x8E);
+    idt_set_gate(7,  (uint32_t)isr7,  0x08, 0x8E);
+    idt_set_gate(8,  (uint32_t)isr8,  0x08, 0x8E);
+    idt_set_gate(9,  (uint32_t)isr9,  0x08, 0x8E);
+    idt_set_gate(10, (uint32_t)isr10, 0x08, 0x8E);
+    idt_set_gate(11, (uint32_t)isr11, 0x08, 0x8E);
+    idt_set_gate(12, (uint32_t)isr12, 0x08, 0x8E);
+    idt_set_gate(13, (uint32_t)isr13, 0x08, 0x8E);
+    idt_set_gate(14, (uint32_t)isr14, 0x08, 0x8E);
+    idt_set_gate(15, (uint32_t)isr15, 0x08, 0x8E);
+    idt_set_gate(16, (uint32_t)isr16, 0x08, 0x8E);
+    idt_set_gate(17, (uint32_t)isr17, 0x08, 0x8E);
+    idt_set_gate(18, (uint32_t)isr18, 0x08, 0x8E);
+    idt_set_gate(19, (uint32_t)isr19, 0x08, 0x8E);
+    idt_set_gate(20, (uint32_t)isr20, 0x08, 0x8E);
+    idt_set_gate(21, (uint32_t)isr21, 0x08, 0x8E);
+    idt_set_gate(22, (uint32_t)isr22, 0x08, 0x8E);
+    idt_set_gate(23, (uint32_t)isr23, 0x08, 0x8E);
+    idt_set_gate(24, (uint32_t)isr24, 0x08, 0x8E);
+    idt_set_gate(25, (uint32_t)isr25, 0x08, 0x8E);
+    idt_set_gate(26, (uint32_t)isr26, 0x08, 0x8E);
+    idt_set_gate(27, (uint32_t)isr27, 0x08, 0x8E);
+    idt_set_gate(28, (uint32_t)isr28, 0x08, 0x8E);
+    idt_set_gate(29, (uint32_t)isr29, 0x08, 0x8E);
+    idt_set_gate(30, (uint32_t)isr30, 0x08, 0x8E);
+    idt_set_gate(31, (uint32_t)isr31, 0x08, 0x8E);
 
     /* IRQs */
-    isr_handlers[IRQ0]  = irq_timer;
-    isr_handlers[IRQ1]  = irq_keyboard;
-    isr_handlers[IRQ2]  = irq_cascade;
-    isr_handlers[IRQ3]  = irq_serial2;
-    isr_handlers[IRQ4]  = irq_serial1;
-    isr_handlers[IRQ5]  = irq_parallel2;
-    isr_handlers[IRQ6]  = irq_floppy;
-    isr_handlers[IRQ7]  = irq_parallel1;
-    isr_handlers[IRQ8]  = irq_rtc;
-    isr_handlers[IRQ9]  = irq_irq9;
-    isr_handlers[IRQ10] = irq_irq10;
-    isr_handlers[IRQ11] = irq_irq11;
-    isr_handlers[IRQ12] = irq_ps2_mouse;
-    isr_handlers[IRQ13] = irq_fpu;
-    isr_handlers[IRQ14] = irq_ata_primary;
-    isr_handlers[IRQ15] = irq_ata_secondary;
-    isr_handlers[47]    = irq_spurious;
+    idt_set_gate(INT_IRQ0,  (uint32_t)irq0,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ1,  (uint32_t)irq1,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ2,  (uint32_t)irq2,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ3,  (uint32_t)irq3,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ4,  (uint32_t)irq4,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ5,  (uint32_t)irq5,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ6,  (uint32_t)irq6,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ7,  (uint32_t)irq7,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ8,  (uint32_t)irq8,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ9,  (uint32_t)irq9,  0x08, 0x8E);
+    idt_set_gate(INT_IRQ10, (uint32_t)irq10, 0x08, 0x8E);
+    idt_set_gate(INT_IRQ11, (uint32_t)irq11, 0x08, 0x8E);
+    idt_set_gate(INT_IRQ12, (uint32_t)irq12, 0x08, 0x8E);
+    idt_set_gate(INT_IRQ13, (uint32_t)irq13, 0x08, 0x8E);
+    idt_set_gate(INT_IRQ14, (uint32_t)irq14, 0x08, 0x8E);
+    idt_set_gate(INT_IRQ15, (uint32_t)irq15, 0x08, 0x8E);
+
+    __asm__ volatile("lidt %0" : : "m"(idtp));
+    
+    /* Diagnostic: Verify IDT was loaded */
+    kprintf("  IDT: Table loaded at 0x%x...     ", (uint32_t)&idt);
+    console_set_color(VGA_SUCCESS_ATTR);
+    kprintf("[  OK  ]\n");
+    console_set_color(VGA_DEFAULT_ATTR);
 }

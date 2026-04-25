@@ -3,8 +3,9 @@
  * kernel/drivers/pic.c
  * ============================================================================ */
 
-#include <arch/x86/ports.h>
 #include <kernel/kernel.h>
+#include <kernel/pic.h>
+#include <stdint.h>
 
 /* PIC1 and PIC2 command and data ports */
 #define PIC1_CMD    0x20
@@ -12,36 +13,36 @@
 #define PIC2_CMD    0xA0
 #define PIC2_DATA   0xA1
 
-/* Initialize PIC (8259A) and remap IRQs to interrupt vectors 0x20-0x2F */
-void pic_init(void) {
-    /* Save masks */
-    uint8_t mask1 = inb(PIC1_DATA);
-    uint8_t mask2 = inb(PIC2_DATA);
-
-    /* Begin initialization sequence */
-    outb(PIC1_CMD, 0x11);   /* ICW1: Initialize, edge-triggered, cascade */
+void pic_remap(int offset1, int offset2) {
+    /* ICW1: Start initialization in cascade mode */
+    outb(PIC1_CMD, 0x11);
+    io_wait();
     outb(PIC2_CMD, 0x11);
     io_wait();
-
-    /* ICW2: Vector offsets (map IRQ0-7 to 0x20-0x27, IRQ8-15 to 0x28-0x2F) */
-    outb(PIC1_DATA, 0x20);
-    outb(PIC2_DATA, 0x28);
+    
+    /* ICW2: Master PIC vector offset */
+    outb(PIC1_DATA, offset1);
     io_wait();
-
-    /* ICW3: Tell master PIC about slave at IRQ2 (0000 0100) */
+    /* ICW2: Slave PIC vector offset */
+    outb(PIC2_DATA, offset2);
+    io_wait();
+    
+    /* ICW3: Tell Master PIC there is a slave PIC at IRQ2 (0000 0100) */
     outb(PIC1_DATA, 0x04);
-    /* ICW3: Tell slave PIC its cascade identity (2) */
+    io_wait();
+    /* ICW3: Tell Slave PIC its cascade identity (0000 0010) */
     outb(PIC2_DATA, 0x02);
     io_wait();
-
-    /* ICW4: 8086 mode, not auto-EOI, not buffered, normal EOI */
+    
+    /* ICW4: Set 8086/88 mode */
     outb(PIC1_DATA, 0x01);
+    io_wait();
     outb(PIC2_DATA, 0x01);
     io_wait();
-
-    /* Restore saved masks */
-    outb(PIC1_DATA, mask1);
-    outb(PIC2_DATA, mask2);
+    
+    /* Mask all interrupts on both PICs except cascade (IRQ2) */
+    outb(PIC1_DATA, 0xFB); /* 1111 1011 */
+    outb(PIC2_DATA, 0xFF); /* 1111 1111 */
 }
 
 /* Send End-of-Interrupt (EOI) to PIC(s) */

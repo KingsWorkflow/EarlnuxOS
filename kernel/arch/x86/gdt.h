@@ -24,8 +24,7 @@ typedef struct PACKED {
     uint16_t base_low;        /* Low 16 bits of base address */
     uint8_t  base_middle;     /* Middle 8 bits of base */
     uint8_t  access;          /* Access flags */
-    uint8_t  limit_high:4;    /* High 4 bits of limit */
-    uint8_t  flags:4;         /* Flags */
+    uint8_t  granularity;     /* Granularity and flags */
     uint8_t  base_high;       /* High 8 bits of base */
 } gdt_entry_t;
 

@@ -3,7 +3,7 @@
  * kernel/fs/vfs.c
  * ============================================================================ */
 
-#include <fs/fs.h>
+#include <fs/vfs.h>
 #include <kernel/kernel.h>
 #include <lib/string.h>
 #include <mm/mm.h>
@@ -24,7 +24,7 @@ int vfs_register_fs(fs_type_t *type) {
     if (!type || !type->name) return -1;
     type->next = fs_list;
     fs_list = type;
-    KINFO("vfs", "Registered filesystem: %s", type->name);
+    KINFO("vfs", "Filesystem registered");
     return 0;
 }
 
@@ -70,14 +70,14 @@ int vfs_mount(const char *source, const char *target,
         if (strcmp(f->name, fstype) == 0) { fs = f; break; }
     }
     if (!fs) {
-        KERROR("vfs", "Unknown filesystem: %s", fstype);
+        KERROR("vfs", "Unknown filesystem");
         return -1;
     }
 
     /* Call filesystem's mount to get root inode */
     inode_t *root = fs->mount(fs, source, flags);
     if (!root) {
-        KERROR("vfs", "Filesystem %s mount failed", fstype);
+        KERROR("vfs", "Filesystem mount failed");
         return -1;
     }
 
@@ -92,7 +92,7 @@ int vfs_mount(const char *source, const char *target,
     mnt->next = mount_list;
     mount_list = mnt;
 
-    KINFO("vfs", "Mounted %s at %s", fstype, target);
+    KINFO("vfs", "Filesystem mounted");
     return 0;
 }
 
@@ -100,6 +100,7 @@ int vfs_mount(const char *source, const char *target,
  * Unmount (stub)
  * ========================================================================== */
 int vfs_umount(const char *target) {
+    (void)target;
     /* Not implemented for this simple kernel */
     return -1;
 }
@@ -174,12 +175,12 @@ int64_t vfs_seek(int fd, int64_t offset, int whence) {
 /* ==========================================================================
  * Directory operations
  * ========================================================================== */
-int vfs_readdir(int fd, dirent_t *buf, uint32_t count) {
+int vfs_readdir(int fd, dirent_t *buf, size_t len) {
     if (fd < 0 || fd >= FD_MAX || !fd_table[fd]) return -1;
     file_t *file = fd_table[fd];
     if (!(file->flags & O_DIRECTORY)) return -1;
     if (!file->ops || !file->ops->readdir) return -1;
-    return file->ops->readdir(file, buf, count);
+    return file->ops->readdir(file, buf, len);
 }
 
 /* ==========================================================================
@@ -217,38 +218,67 @@ void vfs_init(void) {
 
 /* Path canonicalize stub */
 int path_canonicalize(const char *in, char *out, size_t len) {
-    strlcpy(out, in, len);
+    if (!in || !out || len == 0) return -1;
+    /* Basic identity copy for now, ensuring null termination */
+    size_t i;
+    for (i = 0; i < len - 1 && in[i]; i++) out[i] = in[i];
+    out[i] = '\0';
     return 0;
 }
+
 int path_dirname(const char *path, char *out, size_t len) {
-    const char *p = strrchr(path, '/');
-    if (!p) { out[0] = '/\0'; return 0; }
-    size_t n = p - path;
-    if (n >= len) n = len - 1;
-    memcpy(out, path, n);
-    out[n] = '\0';
+    if (!path || !out || len < 2) return -1;
+    
+    /* Find last slash */
+    const char *last_slash = strrchr(path, '/');
+    
+    if (!last_slash) {
+        /* No slash: current directory "." or just "/" */
+        out[0] = '.'; out[1] = '\0';
+        return 0;
+    }
+    
+    if (last_slash == path) {
+        /* Only one slash at start: root "/" */
+        out[0] = '/'; out[1] = '\0';
+        return 0;
+    }
+    
+    /* Copy up to (but not including) the last slash */
+    size_t dlen = last_slash - path;
+    if (dlen >= len) dlen = len - 1;
+    memcpy(out, path, dlen);
+    out[dlen] = '\0';
     return 0;
 }
+
 int path_basename(const char *path, char *out, size_t len) {
-    const char *p = strrchr(path, '/');
-    if (!p) p = path; else p++;
-    strlcpy(out, p, len);
+    if (!path || !out || len < 1) return -1;
+    
+    const char *last_slash = strrchr(path, '/');
+    const char *base = last_slash ? last_slash + 1 : path;
+    
+    size_t blen = strlen(base);
+    if (blen >= len) blen = len - 1;
+    memcpy(out, base, blen);
+    out[blen] = '\0';
     return 0;
 }
+
 bool path_is_absolute(const char *path) {
-    return path[0] == '/';
+    return path && path[0] == '/';
 }
 
 /* Stubs */
-int vfs_rmdir(const char *path) { return -1; }
-int vfs_rename(const char *old, const char *newpath) { return -1; }
-int vfs_symlink(const char *target, const char *linkpath) { return -1; }
-int vfs_readlink(const char *path, char *buf, size_t len) { return -1; }
-int vfs_chmod(const char *path, uint16_t mode) { return -1; }
-int vfs_chown(const char *path, uint32_t uid, uint32_t gid) { return -1; }
-int vfs_stat(const char *path, stat_t *st) { return -1; }
-int vfs_fstat(int fd, stat_t *st) { return -1; }
-int vfs_ioctl(int fd, uint32_t cmd, void *arg) { return -1; }
-int vfs_mmap(int fd, uint32_t virt, size_t len, uint32_t flags) { return -1; }
-int vfs_fsync(int fd) { return -1; }
-int vfs_ftruncate(int fd, uint64_t size) { return -1; }
+int vfs_rmdir(const char *path) { (void)path; return -1; }
+int vfs_rename(const char *old, const char *newpath) { (void)old; (void)newpath; return -1; }
+int vfs_symlink(const char *target, const char *linkpath) { (void)target; (void)linkpath; return -1; }
+int vfs_readlink(const char *path, char *buf, size_t len) { (void)path; (void)buf; (void)len; return -1; }
+int vfs_chmod(const char *path, uint16_t mode) { (void)path; (void)mode; return -1; }
+int vfs_chown(const char *path, uint32_t uid, uint32_t gid) { (void)path; (void)uid; (void)gid; return -1; }
+int vfs_stat(const char *path, stat_t *st) { (void)path; (void)st; return -1; }
+int vfs_fstat(int fd, stat_t *st) { (void)fd; (void)st; return -1; }
+int vfs_ioctl(int fd, uint32_t cmd, void *arg) { (void)fd; (void)cmd; (void)arg; return -1; }
+int vfs_mmap(int fd, uint32_t virt, size_t len, uint32_t flags) { (void)fd; (void)virt; (void)len; (void)flags; return -1; }
+int vfs_fsync(int fd) { (void)fd; return -1; }
+int vfs_ftruncate(int fd, uint64_t size) { (void)fd; (void)size; return -1; }

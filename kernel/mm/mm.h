@@ -218,7 +218,7 @@ int    vma_insert(vma_t **list, vma_t *vma);
 #define KERNEL_LOAD_PHYS    0x00100000u  /* Kernel loaded at 1MB physical */
 #define KERNEL_VIRT_BASE    0xC0000000u  /* Higher-half: kernel virtual base */
 #define KERNEL_HEAP_START   0xD0000000u  /* Kernel heap */
-#define KERNEL_HEAP_SIZE    (128 * 1024 * 1024u)  /* 128 MB heap */
+#define KERNEL_HEAP_SIZE    (256 * 1024 * 1024u)  /* 256 MB heap */
 #define KERNEL_STACK_TOP    0xCFFFFFF0u
 #define KERNEL_STACK_SIZE   (64 * 1024u)           /* 64 KB stack */
 #define USER_SPACE_START    0x00001000u

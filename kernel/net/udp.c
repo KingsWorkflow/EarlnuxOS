@@ -1,5 +1,18 @@
-/* UDP Stub */
+/* ============================================================================
+ *  EarlnuxOS - UDP Protocol Layer (Stub)
+ * kernel/net/udp.c
+ * ============================================================================ */
+
+#include <net/net.h>
 #include <kernel/kernel.h>
-void udp_init(void) { }
-int udp_send(uint32_t dst, uint16_t dport, const void *data, size_t len) { return -1; }
-void udp_recv(uint32_t src, uint16_t sport, const uint8_t *data, size_t len) { }
+
+void udp_init(void) {
+    /* UDP initialization logic */
+}
+
+void udp_recv(ip4_addr_t src, const uint8_t *data, size_t len) {
+    (void)src;
+    (void)data;
+    (void)len;
+    /* Future: dispatch to registered UDP sockets */
+}

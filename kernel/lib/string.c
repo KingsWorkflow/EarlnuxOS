@@ -4,7 +4,6 @@
  * ============================================================================ */
 
 #include <types.h>
-#include <stddef.h>
 
 /* Memory operations */
 void *memcpy(void *dest, const void *src, size_t n) {
@@ -199,3 +198,29 @@ char *itoa(int value, char *str, int base) {
 /* BCD to binary and binary to BCD (for RTC) */
 uint8_t bcd_to_bin(uint8_t bcd) { return (bcd & 0x0F) + ((bcd >> 4) * 10); }
 uint8_t bin_to_bcd(uint8_t bin) { return (uint8_t)(((bin / 10) << 4) | (bin % 10)); }
+
+/* Basic sprintf/snprintf implementation for networking */
+int snprintf(char *str, size_t size, const char *format, ...) {
+    (void)format;
+    // Basic stub implementation - just copy format string
+    // In a real kernel, you'd implement proper formatting
+    if (!str || size == 0) return 0;
+
+    // Very basic implementation - just null terminate
+    // In a real kernel, you'd implement proper formatting later
+    str[0] = '\0';
+    return 0;
+}
+
+// Safe string copy
+size_t strlcpy(char *dest, const char *src, size_t size) {
+    size_t ret = strlen(src);
+
+    if (size) {
+        size_t len = (ret >= size) ? size - 1 : ret;
+        memcpy(dest, src, len);
+        dest[len] = '\0';
+    }
+
+    return ret;
+}

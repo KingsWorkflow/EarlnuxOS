@@ -1,12 +1,12 @@
-/* ============================================================================
- *  EarlnuxOS - PS/2 Keyboard Driver
- * kernel/drivers/keyboard.c
- * ============================================================================ */
-
 #include <kernel/kernel.h>
-#include <kernel/console.h>
-#include <arch/x86/ports.h>
-#include <types.h>
+#include <kernel/regs.h>
+#include <kernel/pic.h>
+#include <kernel/ps2.h>
+#include <arch/x86/idt.h>
+#include <stdint.h>
+
+/* Forward declarations */
+void keyboard_handle_scancode(uint8_t sc);
 
 /* Keyboard buffer size */
 #define KB_BUF_SIZE     128
@@ -45,19 +45,30 @@ static const char scancode_shift[128] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
+/* Interrupt handler called by IDT */
+void keyboard_handler(struct regs *r) {
+    (void)r;
+    uint8_t scancode = inb(0x60);
+    keyboard_handle_scancode(scancode);
+}
+
 /* Initialize keyboard driver */
 void keyboard_init(void) {
-    /* Enable keyboard IRQ on PIC */
-    pic_unmask_irq(IRQ1);
+    /* Power on the hardware controller */
+    extern void ps2_init(void);
+    ps2_init();
 
-    /* Enable keyboard scanning */
-    ps2_write_cmd(0xAE);  /* Enable keyboard */
-
-    /* Clear buffer */
+    /* Remapped IRQ1 is the vector defined in idt.h */
+    isr_register_handler(INT_IRQ1, keyboard_handler);
+    
+    /* Hardware IRQ line 1 for the PIC */
+    pic_unmask_irq(1);
+    
+    /* Reset buffer state */
     kb_head = kb_tail = 0;
     shift_down = false;
-
-    KINFO("keyboard", "PS/2 keyboard initialized");
+    
+    KINFO("keyboard", "PS/2 keyboard initialized\n");
 }
 
 /* Handle a scancode from hardware interrupt */

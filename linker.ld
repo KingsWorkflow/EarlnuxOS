@@ -1,24 +1,30 @@
-/* linker.ld - Linker script for kernel */
+/* linker.ld - EarlnuxOS kernel linker script */
 
-ENTRY(kernel_entry)
+ENTRY(_start)
 
 SECTIONS {
-    . = 0x10000;  /* Load address (where bootloader puts kernel) */
+    /* Standard Multiboot2 load address at 1MB */
+    . = 1M;
 
-    .text : {
+    /* Kernel entry and Multiboot header MUST be first */
+    .text ALIGN(4K) : {
+        *(.multiboot)
         *(.text)
     }
 
-    .rodata : {
+    .rodata ALIGN(4K) : {
         *(.rodata)
+        *(.rodata.*)
     }
 
-    .data : {
+    .data ALIGN(4K) : {
         *(.data)
     }
 
-    .bss : {
-        *(.bss)
+    .bss ALIGN(4K) : {
+        __bss_start = .;
         *(COMMON)
+        *(.bss)
+        __bss_end = .;
     }
 }
