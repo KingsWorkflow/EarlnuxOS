@@ -92,21 +92,28 @@
 
     <div class="status" id="status">Status: Waiting for initialization...</div>
 
-    <!-- v86 Emulator Library - Using a reliable mirror -->
-    <script src="https://copy.sh/v86/build/libv86.js"></script>
+    <!-- v86 Emulator Library - Using UNPKG mirror for maximum reliability -->
+    <script src="https://unpkg.com/v86/build/libv86.js"></script>
     <script>
         window.onload = function() {
             var status = document.getElementById("status");
-            console.log("Initializing v86...");
+            console.log("Checking for v86 engine...");
+            
+            if (typeof V86Starter !== "function") {
+                status.innerText = "Critical Error: Emulator engine (libv86.js) failed to load. Are you offline or is a script blocker active?";
+                console.error("V86Starter is not defined. Check your internet connection or CDN availability.");
+                return;
+            }
+
             status.innerText = "Status: Connecting to Emulator Engine...";
 
             var settings = {
-                wasm_path: "https://copy.sh/v86/build/v86.wasm",
+                wasm_path: "https://unpkg.com/v86/build/v86.wasm",
                 memory_size: 128 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
                 screen_container: document.getElementById("screen_container"),
-                bios: { url: "https://copy.sh/v86/bios/seabios.bin" },
-                vga_bios: { url: "https://copy.sh/v86/bios/vgabios.bin" },
+                bios: { url: "https://unpkg.com/v86/bios/seabios.bin" },
+                vga_bios: { url: "https://unpkg.com/v86/bios/vgabios.bin" },
                 cdrom: { url: "build/os.iso" },
                 autostart: true,
             };
@@ -129,8 +136,8 @@
                 });
 
             } catch (e) {
-                status.innerText = "Critical Error: Could not start emulator.";
-                console.error(e);
+                status.innerText = "Critical Error: " + e.message;
+                console.error("V86 Start Error:", e);
             }
         };
     </script>
