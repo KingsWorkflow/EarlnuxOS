@@ -140,11 +140,7 @@ static void start_networking(void) {
  * Built-in Mini Shell
  * ============================================================================ */
 #define SHELL_BUF_SIZE 256
-#define SHELL_HISTORY  16
-
 static char shell_input[SHELL_BUF_SIZE];
-static char shell_history[SHELL_HISTORY][SHELL_BUF_SIZE];
-static int  shell_hist_idx = 0;
 
 extern char keyboard_getchar(void);
 

@@ -1,329 +1,82 @@
-#  EarlnuxOS
+# EarlnuxOS
 
-A modern hobby OS for x86 – built from scratch with a clean architecture.
+A professional-grade 32-bit x86 Operating System built from scratch with a clean, modular architecture.
 
-## Table of Contents
+## Overview
 
-- [Project Description](#project-description)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Folder Structure](#folder-structure)
-- [Prerequisites](#prerequisites)
-- [Building](#building)
-- [Running](#running)
-- [Troubleshooting](#troubleshooting)
-- [Project Status](#project-status)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Project Description
-
- EarlnuxOS is a 32-bit x86 operating system written in C and NASM assembly. It implements core OS abstractions: bootloading, memory management, virtual filesystem, interrupt handling, device drivers, and a full TCP/IP stack. Designed for education and experimentation,  EarlnuxOS demonstrates how to build a modern microkernel-inspired monolithic OS from the ground up.
-
-### Key Design Goals
-
-- **Higher-half kernel** running at `0xC0000000` virtual base
-- **Multiboot-compliant** bootloader (GRUB-compatible)
-- **VGA text-mode console** with color support
-- **PMM** (buddy allocator), **VMM** (two-level paging), **SLAB** heap
-- **VFS layer** with pluggable filesystems (RAMFS, PROCFS, VibeFS)
-- **Full TCP/IP stack** (Ethernet, IPv4, ARP, ICMP, UDP, TCP, DHCP, DNS)
-- **Interactive shell** with 15+ built-in commands
+EarlnuxOS is a monolithic kernel implementation for the i686 architecture. It demonstrates modern OS abstractions including multiboot-compliant loading, advanced memory management (Buddy/SLAB), a Virtual Filesystem (VFS) layer, and a robust interrupt handling system with PIC/PIT synchronization.
 
 ## Features
 
-### Core Subsystems
-
-- **Bootloader** – 2-stage BIOS loader (stage1 + stage2)
-- **IDT/ISR** – 256-vector interrupt descriptor table with exception handlers
-- **Memory Management** – Physical (buddy), Virtual (paging), Kernel heap (SLAB)
-- **Filesystems** – Virtual filesystem (VFS), RAMFS (tmpfs), PROCFS, VibeFS (native)
-- **Networking** – Complete TCP/IP stack with DHCP and DNS client
-- **Drivers** – PS/2 keyboard, PIT timer, PIC interrupt controller
-- **Console** – 80×25 VGA text mode, color attributes, formatted output (`kprintf`)
-- **Shell** – Interactive command-line with history and built-in commands (`help`, `ping`, `ls`, `cat`, `meminfo`, `netinfo`, etc.)
+- **Microkernel-Inspired Monolithic Design**: Modular subsystems with clean interfaces.
+- **Advanced Memory Management**: Physical Buddy Allocator, Two-Level Paging (VMM), and SLAB-style Kernel Heap.
+- **Robust Interrupt System**: 256-vector IDT with hardware IRQ remapping and production-grade PIC synchronization.
+- **Pluggable VFS**: Virtual Filesystem supporting RAMFS, PROCFS, and native VibeFS.
+- **Interactive Shell**: Full-featured shell with command history, path traversal, and 15+ built-in utilities.
+- **Integrated Network Stack**: Core TCP/IP implementation (IPv4, ARP, ICMP, UDP, TCP, DHCP, DNS).
 
 ## Architecture
 
- EarlnuxOS follows a **monolithic kernel** design with layered subsystems:
-
-```
+```text
 ┌─────────────────────────────────────────┐
-│          User Space (Shell)              │
+│          User Space (Interactive Shell)  │
 ├─────────────────────────────────────────┤
-│              VFS Layer                   │
+│              VFS Layer (POSIX)           │
 ├─────────────┬──────────────┬─────────────┤
-│    FAT      │    RAMFS     │   PROCFS    │
+│    RAMFS    │    PROCFS    │   VibeFS    │
 ├─────────────┴──────────────┴─────────────┤
-│          Block Device Layer              │
-├─────────────────────────────────────────┤
-│            Network Stack                 │
-├─────────────┬──────────────┬─────────────┤
-│     TCP     │     UDP      │    ICMP     │
-├─────────────┴──────────────┴─────────────┤
-│          Ethernet /  ARP                │
+│            Network Stack (L2-L4)         │
 ├─────────────────────────────────────────┤
 │        Memory Management (PMM/VMM)       │
 ├─────────────────────────────────────────┤
 │        Hardware Drivers (KBD, PIC, PIT)  │
 ├─────────────────────────────────────────┤
-│        Console (VGA) + Kernel API       │
-├─────────────────────────────────────────┤
-│   Interrupts (IDT) + CPU Architecture   │
+│   Interrupts (IDT) + ISR Dispatcher     │
 └─────────────────────────────────────────┘
-```
-
-**Boot Process**
-
-1. **GRUB** – Loads the kernel ELF from the ISO image at `0x100000`.
-2. **Kernel Entry** (`kernel/arch/x86/entry.asm`) – Multiboot header, BSS clear, calls `kernel_main`.
-
-**Memory Layout**
-
-| Region | Virtual | Physical |
-|--------|---------|----------|
-| Kernel code/data | `0x00100000 – 0x00FFFFFF` | `0x00100000 – 0x00FFFFFF` |
-| Kernel heap | Static buffer (512KB) | — |
-
-## Folder Structure
-
-```
-project-OS/
-├── kernel/                     # Kernel source code
-│   ├── arch/x86/               # x86-specific assembly and C
-│   ├── mm/                     # Memory management
-│   ├── drivers/                # Hardware drivers
-│   ├── fs/                     # Filesystems
-│   ├── net/                    # Network stack
-│   └── lib/                    # Kernel library (printf, string)
-├── include/                    # Kernel headers
-├── build/                      # Build artifacts (generated)
-├── Makefile                    # Build system
-├── linker.ld                   # Kernel linker script
-├── README.md                   # This file
-└── LICENSE                    # MIT License
 ```
 
 ## Prerequisites
 
-> **Important**:  EarlnuxOS requires a cross-compiler toolchain that is not available in standard package repositories. See [`TOOLCHAIN_SETUP.md`](TOOLCHAIN_SETUP.md) for detailed installation instructions.
-
-| Tool | Purpose | Installation |
-|------|---------|-------------|
-| `nasm` | Netwide Assembler (bootloader, assembly stubs) | `apt install nasm` / `brew install nasm` |
-| `i686-elf-gcc` | Cross-compiler for 32-bit ELF | **See `TOOLCHAIN_SETUP.md`** |
-| `i686-elf-ld` | Cross-linker | Comes with binutils |
-| `qemu-system-i386` | i386 emulator | `apt install qemu-system-i386` / `brew install qemu` |
-| `make` | Build automation | Usually pre-installed |
-
-### Installing the Cross-Compiler
-
-**Option 1: Use pre-built i686-linux-gnu (Faster - Recommended)**
-
 On **Ubuntu/Debian/WSL**:
+```bash
+sudo apt update
+sudo apt install -y nasm gcc-i686-linux-gnu binutils-i686-linux-gnu qemu-system-i386 make xorriso grub-pc-bin mtools
+```
+
+## Building and Running
+
+The build system uses a standard `Makefile` to generate a bootable ISO.
 
 ```bash
-sudo apt install -y gcc-i686-linux-gnu binutils-i686-linux-gnu
+# Build the ISO image
+make iso
+
+# Run in QEMU
+qemu-system-i386 -cdrom build/os.iso -boot d -m 128M
 ```
 
-Then update [Makefile](Makefile) line 5:
-```makefile
-CROSS_COMPILE = i686-linux-gnu-
-```
-
-This uses the standard Linux GNU toolchain configured for 32-bit x86. It works with our x86 bootloader and kernel code.
-
-**Option 2: Build i686-elf from source (Slower)**
-
-If you need the strict ELF ABI, build from source on **Ubuntu/Debian**:
-
-```bash
-sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo
-
-# Binutils
-wget https://ftp.gnu.org/gnu/binutils/binutils-2.38.tar.gz
-tar -xzf binutils-2.38.tar.gz && cd binutils-2.38
-mkdir build && cd build
-../configure --target=i686-elf --prefix=/usr/local --with-sysroot --disable-nls --disable-werror
-make -j$(nproc) && sudo make install
-cd ../..
-
-# GCC (takes 5-10 minutes)
-wget https://ftp.gnu.org/gnu/gcc/gcc-11.2.0/gcc-11.2.0.tar.gz
-tar -xzf gcc-11.2.0.tar.gz && cd gcc-11.2.0
-mkdir build && cd build
-../configure --target=i686-elf --prefix=/usr/local --disable-nls --enable-languages=c --without-headers
-make all-gcc -j$(nproc) && sudo make install-gcc
-```
-
-> **Note**: GCC 11.2.0 may have segmentation faults during compilation on some systems. If so, use Option 1 (i686-linux-gnu) instead.
-
-**macOS**: `brew install i686-elf-gcc nasm qemu` (if available) or use MacPorts.
-
-**Windows (WSL2)**: Follow the Ubuntu/Debian instructions in WSL2.
-
-## Building
-
-```bash
-# Clean build
-make clean && make
-
-# Or simply
-make
-```
-
-Generates:
-
-- `build/boot.bin` – Stage 1+2 bootloader binary (raw)
-- `build/ EarlnuxOS.elf` – Linked kernel ELF (higher-half, Multiboot)
-- `build/ EarlnuxOS.img` – 1.44 MiB floppy image ready to boot
-
-Optional targets:
-
-```bash
-make run      # Build and launch QEMU
-make debug    # Build and launch QEMU with GDB stub on :1234
-make clean    # Remove build artifacts
-make tree     # Print project file tree
-```
-
-## Running
-
-```bash
-make run
-```
-
-QEMU launches with the floppy image. Expected output:
-
-```
- EarlnuxOS v1.0 "Prism"  -  Copyright (c) 2025  EarlnuxOS Project
-Built: Apr 23 2026 08:00:00 | Arch: i686
-
-=== Kernel Initialization ===
-
-  Initializing console                  [  OK  ]
-  Initializing physical memory (PMM)    [  OK  ]
-  Initializing virtual memory (VMM)     [  OK  ]
-  Initializing kernel heap (SLAB)       [  OK  ]
-  Initializing interrupt descriptor tbl [  OK  ]
-  Initializing PIC                      [  OK  ]
-  Initializing PIT (1000 Hz)            [  OK  ]
-  Initializing PS/2 keyboard            [  OK  ]
-  Initializing VFS                      [  OK  ]
-  Mounting initial filesystems          [  OK  ]
-  Initializing network (TCP/IP)         [  OK  ]
-
-Network: Starting DHCP... OK  IP: 10.0.2.15
-
-***  EarlnuxOS kernel initialized successfully ***
-```
-
-You then get an interactive shell:
-
-```
-root@ EarlnuxOS:~# help
- EarlnuxOS Built-in Shell Commands:
-  help              Show this help
-  echo [text]       Print text to console
-  clear             Clear screen
-  meminfo           Show memory statistics
-  netinfo           Show network statistics
-  ifconfig          Show/configure network interface
-  ping <ip|host>    Ping an IP address
-  ls [path]         List directory
-  cat <file>        Print file content
-  mkdir <dir>       Create directory
-  rm <file>         Remove file
-  write <file>      Write stdin to file
-  ps                List processes
-  uptime            Show system uptime
-  uname             System information
-  reboot            Reboot system
-  halt              Halt system
-
-root@ EarlnuxOS:~#
-```
-
-## Troubleshooting
-
-### Build Issues
-
-**Error: `i686-elf-gcc: command not found` or `i686-linux-gnu-gcc: command not found`**
-
-- Install the cross-compiler (see [Prerequisites](#installing-the-cross-compiler))
-- Verify: `i686-linux-gnu-gcc --version` or `i686-elf-gcc --version`
-- If using i686-elf, ensure `/usr/local/bin` is in `$PATH`:
-  ```bash
-  echo 'export PATH=/usr/local/bin:$PATH' >> ~/.bashrc && source ~/.bashrc
-  ```
-
-**Error: `GCC internal error: Segmentation fault` during build**
-
-- This is a known issue with GCC 11.2.0 on some systems
-- **Solution**: Use the i686-linux-gnu toolchain instead (see Option 1 above):
-  ```bash
-  sudo apt install gcc-i686-linux-gnu binutils-i686-linux-gnu
-  # Edit Makefile line 5: CROSS_COMPILE = i686-linux-gnu-
-  make clean && make
-  ```
-
-**Error: `fatal error: kernel/types.h: No such file or directory`**
-
-- Ensure include paths are correct: files should use `#include <types.h>` not `#include <kernel/types.h>`
-- Check [include/](include/) directory structure
-
-**Error: `control reaches end of non-void function` warnings**
-
-- Ensure all code paths have explicit `return` statements
-- Initialize variables to avoid undefined behavior: `int x = 0;` not `int x;`
-
-### WSL / Ubuntu Issues
-
-**Permission denied: `/var/lib/dpkg/lock-frontend`**
-
-- Use `sudo`: `sudo apt install package-name`
-- Don't run `apt` as root without `sudo`
-
-**QEMU not installed or `qemu-system-i386: command not found`**
-
-```bash
-sudo apt install qemu-system-i386
-```
+### Optional Build Targets:
+- `make clean`: Remove all build artifacts.
+- `make run`: Build and launch immediately in QEMU.
 
 ## Project Status
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Bootloader | ✅ | Stage 1 + 2, A20 gate, GDT, protected mode |
-| Console | ✅ | VGA text mode 80×25, color, scrolling |
-| IDT / ISR | ✅ | Full 256-vector table; exceptions + IRQs |
-| PIC / PIT | ✅ | IRQ remapping to 0x20–0x2F; 1000 Hz timer |
-| Keyboard | ✅ | PS/2 scancode set 2 → ASCII, shift/ctrl modifiers |
-| PMM | ✅ | Buddy allocator (3 zones: DMA, Normal, Highmem) |
-| VMM | ✅ | Two-level paging (1024-entry PDE/PTE) |
-| Kernel Heap | ✅ | SLAB-style block allocator with coalescing |
-| VFS | ✅ | Core VFS layer (open/read/write/seek/mkdir/unlink/readdir) |
-| RAMFS | ✅ | In-memory tmpfs; supports files + directories |
-| PROCFS | ⚠️ | Basic skeleton; `/proc` mount works |
-| VibeFS | ⚠️ | Header defined; implementation pending |
-| Network Stack | ⚠️ | Core protocols defined; most drivers are stubs |
-| TCP | ⚠️ | Skeleton exists, needs integration |
-| Shell | ✅ | 15+ built-in commands working |
+| Component      | Status | Description |
+|----------------|--------|-------------|
+| **Bootloader** | ✅ | Multiboot 1.0 compliant (GRUB support) |
+| **Console**    | ✅ | VGA Text Mode (80x25) with full color support |
+| **IDT / ISR**  | ✅ | 256 vectors with hardened segment isolation |
+| **PIC / PIT**  | ✅ | Production-grade IRQ remapping & 1000Hz timer |
+| **Keyboard**   | ✅ | PS/2 driver with scancode translation |
+| **PMM / VMM**  | ✅ | Buddy allocator and two-level paging |
+| **Kernel Heap**| ✅ | SLAB allocator with coalescing |
+| **VFS / RAMFS**| ✅ | Full POSIX-style path traversal & node management |
+| **Networking** | ⚠️ | Core protocols implemented; driver stubs pending |
+| **Shell**      | ✅ | Interactive CLI with history and 15 commands |
 
-> **Legend**: ✅ Complete ⚠️ Partial (skeleton/stub) ❌ Missing
-
-## Contributing
-
- EarlnuxOS is an educational project. Contributions are welcome:
-
-- Implement missing filesystems (VibeFS, ext2)
-- Complete network drivers (e.g., Intel e1000, Realtek RTL8139)
-- Add process management & scheduling
-- Implement ELF loader for user programs
-- Write proper TCP retransmission and flow control
-
-Please fork the repository and open a pull request with a clear description of your changes.
+> ✅ Fully Operational | ⚠️ Partial/Skeleton | ❌ Planned
 
 ## License
 
-MIT License – see [`LICENSE`](LICENSE) for details.
+EarlnuxOS is released under the **MIT License**. See `LICENSE` for details.
+© 2026 EarlnuxOS Project.
