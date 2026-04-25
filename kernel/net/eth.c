@@ -21,8 +21,7 @@ void eth_recv(netif_t *iface, const uint8_t *frame, size_t len) {
 
     if (!for_us && !is_bcast) return;
 
-    const uint8_t *payload = frame + sizeof(eth_header_t);
-    size_t payload_len = len - sizeof(eth_header_t);
+    (void)frame; (void)len;
 
     switch (type) {
         case ETH_TYPE_ARP:

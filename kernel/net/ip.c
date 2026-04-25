@@ -7,6 +7,8 @@
 #include <kernel/kernel.h>
 #include <string.h>
 
+extern int eth_send(netif_t *iface, const uint8_t *dst_mac, uint16_t type, const uint8_t *data, size_t len);
+
 void ip4_init(void) {
     KINFO("IP", "IPv4 layer initialized\n");
 }

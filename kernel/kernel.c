@@ -9,6 +9,7 @@
 #include <mm/mm.h>
 #include <net/net.h>
 #include <fs/vfs.h>
+#include <lib/string.h>
 
 #define MB_FLAG_MMAP        BIT(6)
 #define MULTIBOOT_MAGIC_VAL 0x2BADB002u
@@ -25,20 +26,34 @@ static bool kernel_initialized   = false;
 static void print_banner(void) {
     console_set_color(VGA_ATTR(COLOR_LIGHT_CYAN, COLOR_BLACK));
     kprintf("\n");
-    kprintf("███████╗ █████╗ ██████╗ ██╗     ███╗   ██╗██╗   ██╗██╗  ██╗ ██████╗ ███████╗\n");
-    kprintf("██╔════╝██╔══██╗██╔══██╗██║     ████╗  ██║██║   ██║╚██╗██╔╝██╔═══██╗██╔════╝\n");
-    kprintf("█████╗  ███████║██████╔╝██║     ██╔██╗ ██║██║   ██║ ╚███╔╝ ██║   ██║███████╗\n");
-    kprintf("██╔══╝  ██╔══██║██╔══██╗██║     ██║╚██╗██║██║   ██║ ██╔██╗ ██║   ██║╚════██║\n");
-    kprintf("███████╗██║  ██║██║  ██║███████╗██║ ╚████║╚██████╔╝██╔╝ ██╗╚██████╔╝███████║\n");
-    kprintf("╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n");
+    kprintf("          ______           _                         ____   _____ \n");
+    kprintf("         |  ____|         | |                       / __ \\ / ____|\n");
+    kprintf("         | |__   __ _ _ __| |_ __  _   ___  __     | |  | | (___  \n");
+    kprintf("         |  __| / _` | '__| | '_ \\| | | \\ \\/ /     | |  | |\\___ \\ \n");
+    kprintf("         | |___| (_| | |  | | | | | |_| |>  <      | |__| |____) |\n");
+    kprintf("         |______\\__,_|_|  |_|_| |_|\\__,_/_/\\_\\      \\____/|_____/ \n");
+    
+    console_set_color(VGA_ATTR(COLOR_WHITE, COLOR_BLACK));
+    kprintf("    ----------------------------------------------------------------------\n");
+    kprintf("    [ EarlnuxOS v%s \"%s\" | Senior Dev Edition | Built: %s ]\n", 
+            EarlnuxOS_VERSION_STR, EarlnuxOS_CODENAME, __DATE__);
+    kprintf("    ----------------------------------------------------------------------\n\n");
     console_set_color(VGA_DEFAULT_ATTR);
-    kprintf("\n");
+}
+
+extern const char *user_get_current(void);
+static void print_welcome(void) {
+    console_clear();
+    print_banner();
     console_set_color(VGA_ATTR(COLOR_YELLOW, COLOR_BLACK));
-    kprintf("   EarlnuxOS v%s \"%s\"  -  Copyright (c) 2026  EarlnuxOS Project\n",
-             EarlnuxOS_VERSION_STR,  EarlnuxOS_CODENAME);
+    kprintf("    WELCOME, %s!\n\n", user_get_current());
+    console_set_color(VGA_ATTR(COLOR_LIGHT_GRAY, COLOR_BLACK));
+    kprintf("    > System status: OPTIMAL\n");
+    kprintf("    > Security level: ENFORCED\n");
+    kprintf("    > Network stack: ACTIVE\n\n");
+    console_set_color(VGA_ATTR(COLOR_LIGHT_GREEN, COLOR_BLACK));
+    kprintf("    Access granted. Enter 'help' for command list.\n\n");
     console_set_color(VGA_DEFAULT_ATTR);
-    kprintf("  Built: %s %s | Arch: i686\n", __DATE__, __TIME__);
-    kprintf("\n");
 }
 
 /* ============================================================================
@@ -139,12 +154,26 @@ static void start_networking(void) {
 /* ============================================================================
  * Built-in Mini Shell
  * ============================================================================ */
+static char current_working_directory[PATH_MAX] = "/";
+
+static void resolve_path(const char *in, char *out) {
+    if (in[0] == '/') {
+        strncpy(out, in, PATH_MAX);
+    } else {
+        if (strcmp(current_working_directory, "/") == 0) {
+            ksnprintf(out, PATH_MAX, "/%s", in);
+        } else {
+            ksnprintf(out, PATH_MAX, "%s/%s", current_working_directory, in);
+        }
+    }
+}
+
 #define SHELL_BUF_SIZE 256
 static char shell_input[SHELL_BUF_SIZE];
 
 extern char keyboard_getchar(void);
 
-static int shell_readline(char *buf, size_t max) {
+int shell_readline(char *buf, size_t max) {
     size_t pos = 0;
     while (pos < max - 1) {
         char c = keyboard_getchar();
@@ -168,10 +197,7 @@ static int shell_readline(char *buf, size_t max) {
     return (int)pos;
 }
 
-static int kstrcmp(const char *a, const char *b) {
-    while (*a && *b && *a == *b) { a++; b++; }
-    return (int)(unsigned char)*a - (int)(unsigned char)*b;
-}
+
 
 static int tokenize(char *str, char *argv[], int max_args) {
     int argc = 0;
@@ -223,9 +249,12 @@ static void cmd_netinfo(int argc, char *argv[]) {
 }
 
 static void cmd_ls(int argc, char *argv[]) {
-    const char *path = argc >= 2 ? argv[1] : "/";
+    char path[PATH_MAX];
+    if (argc >= 2) resolve_path(argv[1], path);
+    else strcpy(path, current_working_directory);
+
     int fd = vfs_open(path, O_RDONLY | O_DIRECTORY, 0);
-    if (fd < 0) { kprintf("ls: fail\n"); return; }
+    if (fd < 0) { kprintf("ls: cannot access '%s'\n", path); return; }
     dirent_t entries[32];
     int n = vfs_readdir(fd, entries, 32);
     vfs_close(fd);
@@ -234,8 +263,10 @@ static void cmd_ls(int argc, char *argv[]) {
 
 static void cmd_cat(int argc, char *argv[]) {
     if (argc < 2) return;
-    int fd = vfs_open(argv[1], O_RDONLY, 0);
-    if (fd < 0) return;
+    char path[PATH_MAX];
+    resolve_path(argv[1], path);
+    int fd = vfs_open(path, O_RDONLY, 0);
+    if (fd < 0) { kprintf("cat: %s: No such file\n", argv[1]); return; }
     char buf[128];
     ssize_t n;
     while ((n = vfs_read(fd, buf, sizeof(buf)-1)) > 0) {
@@ -248,12 +279,39 @@ static void cmd_cat(int argc, char *argv[]) {
 
 static void cmd_mkdir(int argc, char *argv[]) {
     if (argc < 2) return;
-    vfs_mkdir(argv[1], 0755);
+    char path[PATH_MAX];
+    resolve_path(argv[1], path);
+    if (vfs_mkdir(path, 0755) < 0) {
+        kprintf("mkdir: cannot create directory '%s'\n", argv[1]);
+    }
 }
 
 static void cmd_rm(int argc, char *argv[]) {
     if (argc < 2) return;
-    vfs_unlink(argv[1]);
+    char path[PATH_MAX];
+    resolve_path(argv[1], path);
+    if (vfs_unlink(path) < 0) {
+        kprintf("rm: cannot remove '%s'\n", argv[1]);
+    }
+}
+
+static void cmd_cd(int argc, char *argv[]) {
+    const char *target = argc >= 2 ? argv[1] : "/";
+    char path[PATH_MAX];
+    resolve_path(target, path);
+    
+    int fd = vfs_open(path, O_RDONLY | O_DIRECTORY, 0);
+    if (fd < 0) {
+        kprintf("cd: %s: No such directory\n", target);
+        return;
+    }
+    vfs_close(fd);
+    strncpy(current_working_directory, path, PATH_MAX);
+}
+
+static void cmd_pwd(int argc, char *argv[]) {
+    (void)argc; (void)argv;
+    kprintf("%s\n", current_working_directory);
 }
 
 extern uint32_t timer_get_uptime_ms(void);
@@ -284,6 +342,7 @@ static const cmd_t commands[] = {
     {"help", cmd_help}, {"echo", cmd_echo}, {"clear", cmd_clear},
     {"meminfo", cmd_meminfo}, {"netinfo", cmd_netinfo}, {"ls", cmd_ls},
     {"cat", cmd_cat}, {"mkdir", cmd_mkdir}, {"rm", cmd_rm},
+    {"cd", cmd_cd}, {"pwd", cmd_pwd},
     {"uptime", cmd_uptime}, {"uname", cmd_uname}, {"reboot", cmd_reboot},
     {"halt", cmd_halt}, {NULL, NULL}
 };
@@ -292,19 +351,32 @@ static void shell_run(void) {
     char *argv[16];
     while (1) {
         console_set_color(VGA_ATTR(COLOR_LIGHT_GREEN, COLOR_BLACK));
-        kprintf("root@EarlnuxOS");
+        kprintf("%s@EarlnuxOS", user_get_current());
         console_set_color(VGA_DEFAULT_ATTR);
         kprintf(":~# ");
         int len = shell_readline(shell_input, SHELL_BUF_SIZE);
         if (len == 0) continue;
+
+        /* Save a copy for math evaluation before tokenizing */
+        char raw_input[SHELL_BUF_SIZE];
+        strcpy(raw_input, shell_input);
+
         int argc = tokenize(shell_input, argv, 16);
         for (int i = 0; commands[i].name; i++) {
-            if (kstrcmp(commands[i].name, argv[0]) == 0) {
+            if (strcmp(commands[i].name, argv[0]) == 0) {
                 commands[i].fn(argc, argv);
                 goto next;
             }
         }
-        kprintf("%s: command not found\n", argv[0]);
+        extern int shell_eval_math(const char *str, int *result);
+        int res;
+        if (shell_eval_math(raw_input, &res) == 0) {
+            kprintf("Result: %d\n", res);
+        } else if (shell_eval_math(raw_input, &res) == -2) {
+            kprintf("Error: Division by zero\n");
+        } else {
+            kprintf("%s: command not found\n", argv[0]);
+        }
         next:;
     }
 }
@@ -341,5 +413,14 @@ void kernel_main(uint32_t mb_magic, multiboot_info_t *info) {
     console_clear();
     print_banner();
     kernel_initialized = true;
+    /* Start user login */
+    extern void user_init(void);
+    extern int user_login_sequence(void);
+    user_init();
+    user_login_sequence();
+    
+    /* Welcome dashboard */
+    print_welcome();
+
     shell_run();
 }

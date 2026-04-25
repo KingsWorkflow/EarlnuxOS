@@ -51,7 +51,9 @@ C_SOURCES = \
     kernel/net/dhcp.c \
     kernel/net/dns.c \
     kernel/klog.c \
-    kernel/ps.c
+    kernel/ps.c \
+    kernel/shell_math.c \
+    kernel/user.c
 
 ASM_SOURCES = \
     kernel/arch/x86/entry.asm \
