@@ -92,53 +92,61 @@
 
     <div class="status" id="status">Status: Waiting for initialization...</div>
 
-    <!-- v86 Emulator Library - Using UNPKG mirror for maximum reliability -->
-    <script src="https://unpkg.com/v86/build/libv86.js"></script>
+    <!-- v86 Emulator Library - Using JSDelivr for maximum performance and reliability -->
+    <script src="https://cdn.jsdelivr.net/npm/v86/build/libv86.js" onerror="loadFallback()"></script>
+    
     <script>
+        function loadFallback() {
+            console.warn("JSDelivr failed, trying copy.sh fallback...");
+            var script = document.createElement('script');
+            script.src = "https://copy.sh/v86/build/libv86.js";
+            document.head.appendChild(script);
+        }
+
         window.onload = function() {
             var status = document.getElementById("status");
-            console.log("Checking for v86 engine...");
             
-            if (typeof V86Starter !== "function") {
-                status.innerText = "Critical Error: Emulator engine (libv86.js) failed to load. Are you offline or is a script blocker active?";
-                console.error("V86Starter is not defined. Check your internet connection or CDN availability.");
-                return;
-            }
+            // Give the fallback a moment to load if needed
+            setTimeout(function() {
+                if (typeof V86Starter !== "function") {
+                    status.innerHTML = "Critical Error: Emulator engine failed to load from all sources.<br>" +
+                                     "1. Check if you have an ad-blocker or script-blocker active.<br>" +
+                                     "2. Try opening <a href='https://cdn.jsdelivr.net/npm/v86/build/libv86.js' target='_blank' style='color:var(--accent-color)'>this link</a> to see if your network allows the file.";
+                    return;
+                }
 
-            status.innerText = "Status: Connecting to Emulator Engine...";
+                status.innerText = "Status: Connecting to Emulator Engine...";
 
-            var settings = {
-                wasm_path: "https://unpkg.com/v86/build/v86.wasm",
-                memory_size: 128 * 1024 * 1024,
-                vga_memory_size: 8 * 1024 * 1024,
-                screen_container: document.getElementById("screen_container"),
-                bios: { url: "https://unpkg.com/v86/bios/seabios.bin" },
-                vga_bios: { url: "https://unpkg.com/v86/bios/vgabios.bin" },
-                cdrom: { url: "build/os.iso" },
-                autostart: true,
-            };
+                var settings = {
+                    wasm_path: "https://cdn.jsdelivr.net/npm/v86/build/v86.wasm",
+                    memory_size: 128 * 1024 * 1024,
+                    vga_memory_size: 8 * 1024 * 1024,
+                    screen_container: document.getElementById("screen_container"),
+                    bios: { url: "https://cdn.jsdelivr.net/npm/v86/bios/seabios.bin" },
+                    vga_bios: { url: "https://cdn.jsdelivr.net/npm/v86/bios/vgabios.bin" },
+                    cdrom: { url: "build/os.iso" },
+                    autostart: true,
+                };
 
-            try {
-                var emulator = new V86Starter(settings);
-                
-                emulator.add_listener("emulator-ready", function() {
-                    status.innerText = "Status: Hardware Ready. Booting EarlnuxOS...";
-                    console.log("v86 Ready.");
-                });
+                try {
+                    var emulator = new V86Starter(settings);
+                    
+                    emulator.add_listener("emulator-ready", function() {
+                        status.innerText = "Status: Hardware Ready. Booting EarlnuxOS...";
+                    });
 
-                emulator.add_listener("download-progress", function(e) {
-                    status.innerText = "Status: Downloading " + e.file_name + " (" + Math.round(e.loaded/e.total*100) + "%)";
-                });
+                    emulator.add_listener("download-progress", function(e) {
+                        status.innerText = "Status: Downloading " + e.file_name + " (" + Math.round(e.loaded/e.total*100) + "%)";
+                    });
 
-                emulator.add_listener("download-error", function(e) {
-                    status.innerText = "Error: Failed to load " + e.file_name + ". Check your local server!";
-                    console.error("Download error:", e);
-                });
+                    emulator.add_listener("download-error", function(e) {
+                        status.innerText = "Error: Failed to load " + e.file_name + ". Verify the file exists in build/ folder!";
+                    });
 
-            } catch (e) {
-                status.innerText = "Critical Error: " + e.message;
-                console.error("V86 Start Error:", e);
-            }
+                } catch (e) {
+                    status.innerText = "Critical Error: " + e.message;
+                }
+            }, 1000);
         };
     </script>
 </body>
