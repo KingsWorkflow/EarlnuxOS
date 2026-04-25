@@ -92,25 +92,46 @@
 
     <div class="status" id="status">Status: Waiting for initialization...</div>
 
-    <!-- v86 Emulator Library -->
+    <!-- v86 Emulator Library - Using a reliable mirror -->
     <script src="https://copy.sh/v86/build/libv86.js"></script>
     <script>
         window.onload = function() {
             var status = document.getElementById("status");
-            status.innerText = "Status: Initializing Emulator...";
+            console.log("Initializing v86...");
+            status.innerText = "Status: Connecting to Emulator Engine...";
 
-            var emulator = new V86Starter({
+            var settings = {
                 wasm_path: "https://copy.sh/v86/build/v86.wasm",
-                memory_size: 256 * 1024 * 1024,
+                memory_size: 128 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
                 screen_container: document.getElementById("screen_container"),
                 bios: { url: "https://copy.sh/v86/bios/seabios.bin" },
                 vga_bios: { url: "https://copy.sh/v86/bios/vgabios.bin" },
-                cdrom: { url: "build/os.iso" }, /* Link to your ISO */
+                cdrom: { url: "build/os.iso" },
                 autostart: true,
-            });
+            };
 
-            status.innerText = "Status: System Booting...";
+            try {
+                var emulator = new V86Starter(settings);
+                
+                emulator.add_listener("emulator-ready", function() {
+                    status.innerText = "Status: Hardware Ready. Booting EarlnuxOS...";
+                    console.log("v86 Ready.");
+                });
+
+                emulator.add_listener("download-progress", function(e) {
+                    status.innerText = "Status: Downloading " + e.file_name + " (" + Math.round(e.loaded/e.total*100) + "%)";
+                });
+
+                emulator.add_listener("download-error", function(e) {
+                    status.innerText = "Error: Failed to load " + e.file_name + ". Check your local server!";
+                    console.error("Download error:", e);
+                });
+
+            } catch (e) {
+                status.innerText = "Critical Error: Could not start emulator.";
+                console.error(e);
+            }
         };
     </script>
 </body>
