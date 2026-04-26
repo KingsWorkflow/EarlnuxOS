@@ -209,6 +209,21 @@
                 <p>Type <b>help</b> to see the full list. Try commands like <b>meminfo</b>, <b>netinfo</b>, or file operations like <b>write</b> and <b>cat</b>.</p>
             </div>
         </div>
+
+        <div class="info-card" style="margin-top: 20px;">
+            <h3>Virtual Machine Setup Guide</h3>
+            <p>Ready to run EarlnuxOS locally? Follow these steps to set up the ISO in your favorite VM:</p>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3>VirtualBox / VMWare</h3>
+                    <p>1. Create a New VM<br>2. OS Type: <b>Other</b> (32-bit)<br>3. Memory: <b>128MB</b> (Minimum)<br>4. Storage: Attach <b>os.iso</b> to the Optical Drive.</p>
+                </div>
+                <div class="info-card">
+                    <h3>QEMU (Linux/macOS/Win)</h3>
+                    <p>Run the following command in your terminal:<br><code style="background: #000; color: #0f0; padding: 5px; display: block; margin-top: 5px;">qemu-system-i386 -cdrom os.iso</code></p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
