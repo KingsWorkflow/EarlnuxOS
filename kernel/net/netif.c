@@ -69,6 +69,28 @@ void netif_recv(netif_t *iface, const uint8_t *frame, size_t len) {
     eth_recv(iface, frame, len);
 }
 
+static int virtual_transmit(netif_t *iface, const uint8_t *frame, size_t len) {
+    (void)iface; (void)frame; (void)len;
+    /* Virtual interface - no actual transmission for demo purposes */
+    return 0;
+}
+
+void netif_create_virtual(void) {
+    static netif_t virt_if;
+    memset(&virt_if, 0, sizeof(netif_t));
+    memcpy(virt_if.mac, "\x00\x00\x00\x00\x00\x00", 6);
+    strcpy(virt_if.name, "demo");
+    virt_if.flags = NETIF_UP;
+    virt_if.transmit = virtual_transmit;
+    virt_if.ip_cfg.addr = IP4(127, 0, 0, 1);
+    virt_if.ip_cfg.netmask = IP4(255, 0, 0, 0);
+    virt_if.ip_cfg.gateway = 0;
+    virt_if.ip_cfg.dns[0] = 0;
+    virt_if.ip_cfg.dhcp_enabled = false;
+    netif_register(&virt_if);
+    KINFO("NET", "Created virtual network interface 'demo' for environments without hardware NIC\n");
+}
+
 void netif_list(void) {
     if (netif_count == 0) {
         kprintf("No network interfaces registered.\n");

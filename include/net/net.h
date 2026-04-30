@@ -331,6 +331,7 @@ netif_t *netif_by_name(const char *name);
 int      netif_send(netif_t *iface, const void *frame, size_t len);
 void     netif_recv(netif_t *iface, const uint8_t *frame, size_t len);
 void     netif_list(void);
+void     netif_create_virtual(void);
 
 /* ============================================================================
  * Packet Buffer (sk_buff equivalent)
