@@ -379,6 +379,9 @@ static inline uint32_t htonl(uint32_t v) {
 }
 static inline uint32_t ntohl(uint32_t v) { return htonl(v); }
 
+/* IP address parsing */
+int ip4_parse(const char *str, ip4_addr_t *addr);
+
 /* IP address to string (uses static buffer - single use per call) */
 const char *ip4_to_str(ip4_addr_t ip);
 

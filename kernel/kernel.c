@@ -78,6 +78,8 @@ extern void idt_init(void);
 extern void pic_init(void);
 extern void pit_init(uint32_t hz);
 extern void keyboard_init(void);
+extern void pci_init(void);
+extern void netif_init(void);
 
 static void do_interrupts_init(void) { 
     gdt_init(); 
@@ -140,15 +142,24 @@ static void mount_initial_fs(void) {
 
 static void start_networking(void) {
     netif_t *iface = netif_get_default();
-    if (!iface) return;
+    if (!iface) {
+        KWARN("NET", "No network interface available");
+        return;
+    }
+
+    KINFO("NET", "Configuring network interface '%s'", iface->name);
 
     if (dhcp_discover() != 0) {
         iface->ip_cfg.addr    = IP4(10, 0, 2, 15);
         iface->ip_cfg.netmask = IP4(255, 255, 255, 0);
         iface->ip_cfg.gateway = IP4(10, 0, 2, 2);
         iface->ip_cfg.dns[0]  = IP4(8, 8, 8, 8);
+        iface->ip_cfg.dns[1]  = IP4(0, 0, 0, 0);
+        iface->ip_cfg.dhcp_enabled = false;
+        KINFO("NET", "Configured static IP: %s", ip4_to_str(iface->ip_cfg.addr));
+    } else {
+        KINFO("NET", "DHCP configured IP: %s", ip4_to_str(iface->ip_cfg.addr));
     }
-    dns_set_server(iface->ip_cfg.dns[0]);
 }
 
 /* ============================================================================
@@ -252,7 +263,8 @@ static void cmd_help(int argc, char *argv[]) {
     kprintf("  sysinfo            - Show all system information\n");
     kprintf("  meminfo            - Show memory & heap status\n");
     kprintf("  netinfo            - Show network statistics\n");
-    kprintf("  uptime             - Show system uptime in ms\n");
+    kprintf("  ping <ip>          - Send ICMP echo request to IP\n");
+    kprintf("  uptime             - Show system uptime in h:m:s\n");
     kprintf("  uname              - Show OS name and version\n");
     kprintf("  echo <text>        - Print text to console\n");
     kprintf("  logout             - End current user session\n");
@@ -287,6 +299,41 @@ static void cmd_meminfo(int argc, char *argv[]) {
 static void cmd_netinfo(int argc, char *argv[]) {
     (void)argc; (void)argv;
     net_dump_stats();
+}
+
+static void cmd_ping(int argc, char *argv[]) {
+    if (argc < 2) {
+        kprintf("Usage: ping <ip-address>\n");
+        return;
+    }
+
+    ip4_addr_t target_ip = 0;
+    if (ip4_parse(argv[1], &target_ip) != 0) {
+        kprintf("ping: invalid IP address '%s'\n", argv[1]);
+        return;
+    }
+
+    netif_t *iface = netif_get_default();
+    if (!iface) {
+        kprintf("ping: no network interface available\n");
+        return;
+    }
+
+    kprintf("PING %s (%s): 32 data bytes\n", argv[1], argv[1]);
+
+    for (int i = 0; i < 4; i++) {  /* Send 4 ping packets */
+        if (icmp_ping(target_ip, 12345, i + 1) == 0) {
+            kprintf("64 bytes from %s: icmp_seq=%d\n", argv[1], i + 1);
+        } else {
+            kprintf("Request timeout for icmp_seq=%d\n", i + 1);
+        }
+
+        /* Simple delay - in real implementation, use timer */
+        for (volatile int j = 0; j < 1000000; j++);
+    }
+
+    kprintf("\n--- %s ping statistics ---\n", argv[1]);
+    kprintf("4 packets transmitted, 0 received, 100%% packet loss\n");
 }
 
 static void cmd_ls(int argc, char *argv[]) {
@@ -380,10 +427,20 @@ static void cmd_pwd(int argc, char *argv[]) {
     kprintf("%s\n", current_working_directory);
 }
 
-extern uint32_t timer_get_uptime_ms(void);
+extern uint64_t timer_get_uptime_ms(void);
 static void cmd_uptime(int argc, char *argv[]) {
-    (void)argc; (void)argv;
-    kprintf("Uptime: %u ms\n", timer_get_uptime_ms());
+    (void)argc;
+    (void)argv;
+    uint64_t ms = timer_get_uptime_ms();
+    uint64_t total_seconds = ms / 1000;
+    uint64_t hours = total_seconds / 3600;
+    uint64_t minutes = (total_seconds % 3600) / 60;
+    uint64_t seconds = total_seconds % 60;
+    kprintf("Uptime: %lu:", hours);
+    if (minutes < 10) kprintf("0");
+    kprintf("%lu:", minutes);
+    if (seconds < 10) kprintf("0");
+    kprintf("%lu\n", seconds);
 }
 
 static void cmd_uname(int argc, char *argv[]) {
@@ -436,7 +493,7 @@ typedef struct { const char *name; void (*fn)(int, char **); } cmd_t;
 static const cmd_t commands[] = {
     {"help", cmd_help}, {"echo", cmd_echo}, {"clear", cmd_clear},
     {"meminfo", cmd_meminfo}, {"netinfo", cmd_netinfo}, {"sysinfo", cmd_sysinfo},
-    {"ls", cmd_ls}, {"cat", cmd_cat}, {"mkdir", cmd_mkdir}, {"rm", cmd_rm},
+    {"ping", cmd_ping}, {"ls", cmd_ls}, {"cat", cmd_cat}, {"mkdir", cmd_mkdir}, {"rm", cmd_rm},
     {"touch", cmd_touch}, {"write", cmd_write},
     {"cd", cmd_cd}, {"pwd", cmd_pwd}, {"logout", cmd_logout},
     {"uptime", cmd_uptime}, {"uname", cmd_uname}, {"reboot", cmd_reboot},
@@ -499,12 +556,10 @@ void kernel_main(uint32_t mb_magic, multiboot_info_t *info) {
     init_step("System Timer", do_timer_init);
     init_step("Keyboard Driver", do_keyboard_init);
     init_step("Virtual Filesystem", do_vfs_init);
-    
-    /* Hardware Discovery */
-    extern void pci_init(void);
+
+    init_step("Network Interfaces", netif_init);
     init_step("PCI Bus Discovery", pci_init);
 
-    mount_initial_fs();
     init_step("Networking", do_net_init);
     start_networking();
 

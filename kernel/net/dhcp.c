@@ -11,7 +11,8 @@ void dhcp_init(void) {
 }
 
 int dhcp_discover(void) {
-    return 0;
+    /* DHCP not implemented yet - return failure to use static IP */
+    return -1;
 }
 
 void dhcp_recv(const uint8_t *data, size_t len) {

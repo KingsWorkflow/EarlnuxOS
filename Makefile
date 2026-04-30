@@ -85,7 +85,7 @@ $(BUILD_DIR)/%.o: %.asm | $(BUILD_DIR)
 	$(NASM) -f elf32 $< -o $@
 
 $(KERNEL_ELF): $(OBJS) $(LINKER_SCRIPT)
-	$(LD) -m elf_i386 -T $(LINKER_SCRIPT) -nostdlib -o $@ $(OBJS)
+	$(CC) -m32 -nostdlib -T $(LINKER_SCRIPT) -o $@ $(OBJS) -lgcc
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	$(OBJCOPY) -O binary $< $@
@@ -94,10 +94,10 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 run: $(KERNEL_ELF)
-	$(QEMU) -kernel $(KERNEL_ELF) -m 128M
+	$(QEMU) -kernel $(KERNEL_ELF) -m 128M -net nic,model=rtl8139 -net user
 
 debug: $(KERNEL_ELF)
-	$(QEMU) -kernel $(KERNEL_ELF) -m 128M -s -S
+	$(QEMU) -kernel $(KERNEL_ELF) -m 128M -s -S -net nic,model=rtl8139 -net user
 
 iso: $(KERNEL_ELF)
 	mkdir -p $(BUILD_DIR)/iso/boot/grub

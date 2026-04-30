@@ -23,6 +23,17 @@ static void uint_to_str(uint32_t val, char *buf, int base) {
     buf[j] = '\0';
 }
 
+static void uint64_to_str(uint64_t val, char *buf, int base) {
+    static const char digits[] = "0123456789abcdef";
+    char tmp[64];
+    int  i = 0;
+    if (val == 0) { buf[0] = '0'; buf[1] = '\0'; return; }
+    while (val) { tmp[i++] = digits[val % (uint64_t)base]; val /= (uint64_t)base; }
+    int j = 0;
+    while (i--) buf[j++] = tmp[i];
+    buf[j] = '\0';
+}
+
 static void int_to_str(int32_t val, char *buf) {
     if (val < 0) { *buf++ = '-'; uint_to_str((uint32_t)-val, buf, 10); }
     else         { uint_to_str((uint32_t)val, buf, 10); }
@@ -32,7 +43,7 @@ static void int_to_str(int32_t val, char *buf) {
  * kvprintf - format string to console using a va_list
  * ============================================================================ */
 int kvprintf(const char *fmt, va_list args) {
-    char numbuf[32];
+    char numbuf[64];
 
     while (*fmt) {
         if (*fmt != '%') {
@@ -43,7 +54,6 @@ int kvprintf(const char *fmt, va_list args) {
         if (!*fmt) break;
 
         /* Width / precision (skip, not fully implemented) */
-        /* Width / precision (skip, not fully implemented) */
         if (*fmt == '-') fmt++;
         while (*fmt >= '0' && *fmt <= '9') fmt++;
         if (*fmt == '.') {
@@ -51,17 +61,29 @@ int kvprintf(const char *fmt, va_list args) {
             while (*fmt >= '0' && *fmt <= '9') fmt++;
         }
 
+        /* Length modifier */
+        int is_long = 0;
+        if (*fmt == 'l') { is_long = 1; fmt++; }
+
         switch (*fmt++) {
         case 'd': case 'i':
             int_to_str(va_arg(args, int), numbuf);
             for (char *p = numbuf; *p; p++) console_putchar(*p);
             break;
         case 'u':
-            uint_to_str(va_arg(args, unsigned int), numbuf, 10);
+            if (is_long) {
+                uint64_to_str(va_arg(args, uint64_t), numbuf, 10);
+            } else {
+                uint_to_str(va_arg(args, unsigned int), numbuf, 10);
+            }
             for (char *p = numbuf; *p; p++) console_putchar(*p);
             break;
         case 'x': case 'X':
-            uint_to_str(va_arg(args, unsigned int), numbuf, 16);
+            if (is_long) {
+                uint64_to_str(va_arg(args, uint64_t), numbuf, 16);
+            } else {
+                uint_to_str(va_arg(args, unsigned int), numbuf, 16);
+            }
             for (char *p = numbuf; *p; p++) console_putchar(*p);
             break;
         case 'p':
@@ -113,7 +135,7 @@ static void sbuf_putchar(sbuf_t *b, char c) {
 static int kvsnprintf(char *buf, size_t n, const char *fmt, va_list args) {
     if (!buf || n == 0) return 0;
     sbuf_t b = { buf, buf + n };
-    char numbuf[32];
+    char numbuf[64];
 
     while (*fmt) {
         if (*fmt != '%') { sbuf_putchar(&b, *fmt++); continue; }
@@ -126,6 +148,9 @@ static int kvsnprintf(char *buf, size_t n, const char *fmt, va_list args) {
             fmt++;
             while (*fmt >= '0' && *fmt <= '9') fmt++;
         }
+        /* Length modifier */
+        int is_long = 0;
+        if (*fmt == 'l') { is_long = 1; fmt++; }
         switch (*fmt++) {
         case 'd': case 'i': {
             int32_t v = va_arg(args, int);
@@ -135,11 +160,19 @@ static int kvsnprintf(char *buf, size_t n, const char *fmt, va_list args) {
             break;
         }
         case 'u':
-            uint_to_str(va_arg(args, unsigned int), numbuf, 10);
+            if (is_long) {
+                uint64_to_str(va_arg(args, uint64_t), numbuf, 10);
+            } else {
+                uint_to_str(va_arg(args, unsigned int), numbuf, 10);
+            }
             for (char *p = numbuf; *p; p++) sbuf_putchar(&b, *p);
             break;
         case 'x': case 'X':
-            uint_to_str(va_arg(args, unsigned int), numbuf, 16);
+            if (is_long) {
+                uint64_to_str(va_arg(args, uint64_t), numbuf, 16);
+            } else {
+                uint_to_str(va_arg(args, unsigned int), numbuf, 16);
+            }
             for (char *p = numbuf; *p; p++) sbuf_putchar(&b, *p);
             break;
         case 'c': sbuf_putchar(&b, (char)va_arg(args, int)); break;
