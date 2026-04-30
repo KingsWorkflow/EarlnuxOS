@@ -70,6 +70,11 @@ void netif_recv(netif_t *iface, const uint8_t *frame, size_t len) {
 }
 
 void netif_list(void) {
+    if (netif_count == 0) {
+        kprintf("No network interfaces registered.\n");
+        return;
+    }
+
     for (int i = 0; i < netif_count; i++) {
         netif_t *iface = interfaces[i];
         kprintf("%-8s HWaddr %02x:%02x:%02x:%02x:%02x:%02x\n",

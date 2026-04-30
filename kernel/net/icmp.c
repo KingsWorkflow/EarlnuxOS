@@ -7,8 +7,36 @@
 #include <kernel/kernel.h>
 #include <string.h>
 
+/* Forward declarations */
+uint16_t icmp_checksum(const void *data, size_t len);
+
 void icmp_init(void) {
     KINFO("ICMP", "ICMP layer initialized\n");
+}
+
+int icmp_ping(ip4_addr_t dst, uint16_t id, uint16_t seq) {
+    static uint8_t ping_buf[64];
+    icmp_header_t *icmp = (icmp_header_t *)ping_buf;
+
+    icmp->type = ICMP_ECHO_REQUEST;
+    icmp->code = 0;
+    icmp->checksum = 0;
+    icmp->id = id;
+    icmp->seq = seq;
+
+    /* Add simple payload */
+    uint8_t *payload = ping_buf + sizeof(icmp_header_t);
+    for (int i = 0; i < 32; i++) {
+        payload[i] = 'A' + (i % 26);
+    }
+
+    size_t len = sizeof(icmp_header_t) + 32;
+    icmp->checksum = icmp_checksum(ping_buf, len);
+
+    KDEBUG("ICMP", "Sending ping to %s (id=%u, seq=%u)\n",
+           ip4_to_str(dst), id, seq);
+
+    return ip4_send(dst, IP_PROTO_ICMP, ping_buf, len);
 }
 
 uint16_t icmp_checksum(const void *data, size_t len) {

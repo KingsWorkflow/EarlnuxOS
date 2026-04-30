@@ -39,6 +39,7 @@ extern void rtl8139_init(pci_device_t device);
 
 void pci_init(void) {
     KINFO("PCI", "Scanning PCI bus...\n");
+    uint32_t device_count = 0;
 
     for (uint16_t bus = 0; bus < 256; bus++) {
         for (uint8_t slot = 0; slot < 32; slot++) {
@@ -46,6 +47,7 @@ void pci_init(void) {
                 uint32_t vendor_device = pci_config_read_dword(bus, slot, func, 0);
                 if ((vendor_device & 0xFFFF) == 0xFFFF) continue;
 
+                device_count++;
                 pci_device_t dev;
                 dev.bus = bus;
                 dev.device = slot;
@@ -61,7 +63,7 @@ void pci_init(void) {
                 dev.irq = irq_info & 0xFF;
 
                 /* Log discovery */
-                KDEBUG("PCI", "Found [%04x:%04x] at %02x:%02x.%d (IRQ %d)\n", 
+                KDEBUG("PCI", "Found [%04x:%04x] at %02x:%02x.%d (IRQ %d)\n",
                        dev.vendor_id, dev.device_id, bus, slot, func, dev.irq);
 
                 /* Realtek 8139 */
@@ -78,4 +80,5 @@ void pci_init(void) {
             }
         }
     }
+    KINFO("PCI", "Scan complete. Found %u devices.\n", device_count);
 }
