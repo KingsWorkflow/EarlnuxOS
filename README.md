@@ -61,7 +61,7 @@ When running in QEMU, the OS automatically detects the RTL8139 network interface
 EarlnuxOS can be run directly in your browser without installation.
 1. Enable **GitHub Pages** for your repository.
 2. Ensure `os.iso` is in the `build/` folder.
-3. Access the demo via `https://your-username.github.io/project-OS/`.
+3. Access the demo via `https://kingsworkflow.github.io/EarlnuxOS/`.
 
 ### 🐳 Docker Build (Zero Installation)
 Build the OS without installing any local toolchains:
