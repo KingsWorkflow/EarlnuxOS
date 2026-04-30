@@ -135,6 +135,12 @@ void rtl8139_init(pci_device_t dev) {
     strcpy(rtl_netif.name, "eth0");
     rtl_netif.flags = NETIF_UP;
     rtl_netif.transmit = rtl8139_transmit;
-    
+
+    /* Set static IP for QEMU user networking */
+    rtl_netif.ip_cfg.addr = IP4(10,0,2,15);
+    rtl_netif.ip_cfg.netmask = IP4(255,255,255,0);
+    rtl_netif.ip_cfg.gateway = IP4(10,0,2,2);
+    rtl_netif.ip_cfg.dns[0] = IP4(10,0,2,3);
+
     netif_register(&rtl_netif);
 }

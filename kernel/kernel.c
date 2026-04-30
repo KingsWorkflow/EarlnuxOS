@@ -78,6 +78,8 @@ extern void idt_init(void);
 extern void pic_init(void);
 extern void pit_init(uint32_t hz);
 extern void keyboard_init(void);
+extern void pci_init(void);
+extern void netif_init(void);
 
 static void do_interrupts_init(void) { 
     gdt_init(); 
@@ -554,12 +556,10 @@ void kernel_main(uint32_t mb_magic, multiboot_info_t *info) {
     init_step("System Timer", do_timer_init);
     init_step("Keyboard Driver", do_keyboard_init);
     init_step("Virtual Filesystem", do_vfs_init);
-    
-    /* Hardware Discovery */
-    extern void pci_init(void);
+
+    init_step("Network Interfaces", netif_init);
     init_step("PCI Bus Discovery", pci_init);
 
-    mount_initial_fs();
     init_step("Networking", do_net_init);
     start_networking();
 

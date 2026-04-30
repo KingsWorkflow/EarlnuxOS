@@ -94,10 +94,10 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 run: $(KERNEL_ELF)
-	$(QEMU) -kernel $(KERNEL_ELF) -m 128M
+	$(QEMU) -kernel $(KERNEL_ELF) -m 128M -net nic,model=rtl8139 -net user
 
 debug: $(KERNEL_ELF)
-	$(QEMU) -kernel $(KERNEL_ELF) -m 128M -s -S
+	$(QEMU) -kernel $(KERNEL_ELF) -m 128M -s -S -net nic,model=rtl8139 -net user
 
 iso: $(KERNEL_ELF)
 	mkdir -p $(BUILD_DIR)/iso/boot/grub

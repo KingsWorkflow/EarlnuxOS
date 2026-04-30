@@ -8,10 +8,8 @@
 
 void net_init(void) {
     KINFO("NET", "Initializing Master Network Stack...\n");
-    
+
     /* Initialize subsystems in order */
-    netif_init();
-    
     extern void arp_init(void);
     extern void ip4_init(void);
     extern void icmp_init(void);
