@@ -143,8 +143,13 @@ static void mount_initial_fs(void) {
 static void start_networking(void) {
     netif_t *iface = netif_get_default();
     if (!iface) {
-        KWARN("NET", "No network interface available");
-        return;
+        KWARN("NET", "No hardware network interface available, creating virtual interface");
+        netif_create_virtual();
+        iface = netif_get_default();
+        if (!iface) {
+            KWARN("NET", "Failed to create virtual interface");
+            return;
+        }
     }
 
     KINFO("NET", "Configuring network interface '%s'", iface->name);
