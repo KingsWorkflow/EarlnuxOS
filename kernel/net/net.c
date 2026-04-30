@@ -31,6 +31,32 @@ void net_init(void) {
     KINFO("NET", "Network Stack ready.\n");
 }
 
+int ip4_parse(const char *str, ip4_addr_t *addr) {
+    uint8_t octets[4];
+    int i = 0;
+
+    while (*str && i < 4) {
+        if (*str < '0' || *str > '9') return -1;
+
+        uint8_t octet = 0;
+        while (*str >= '0' && *str <= '9') {
+            octet = octet * 10 + (*str - '0');
+            str++;
+        }
+
+        octets[i++] = octet;
+
+        if (*str == '.') str++;
+        else if (*str == '\0' && i == 4) break;
+        else return -1;
+    }
+
+    if (i != 4) return -1;
+
+    *addr = IP4(octets[0], octets[1], octets[2], octets[3]);
+    return 0;
+}
+
 const char *ip4_to_str(ip4_addr_t ip) {
     static char buf[16];
     ksnprintf(buf, sizeof(buf), "%u.%u.%u.%u",

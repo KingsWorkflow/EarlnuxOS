@@ -85,7 +85,7 @@ $(BUILD_DIR)/%.o: %.asm | $(BUILD_DIR)
 	$(NASM) -f elf32 $< -o $@
 
 $(KERNEL_ELF): $(OBJS) $(LINKER_SCRIPT)
-	$(LD) -m elf_i386 -T $(LINKER_SCRIPT) -nostdlib -o $@ $(OBJS)
+	$(CC) -m32 -nostdlib -T $(LINKER_SCRIPT) -o $@ $(OBJS) -lgcc
 
 $(KERNEL_BIN): $(KERNEL_ELF)
 	$(OBJCOPY) -O binary $< $@

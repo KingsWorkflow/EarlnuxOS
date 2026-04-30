@@ -262,7 +262,7 @@ static void cmd_help(int argc, char *argv[]) {
     kprintf("  meminfo            - Show memory & heap status\n");
     kprintf("  netinfo            - Show network statistics\n");
     kprintf("  ping <ip>          - Send ICMP echo request to IP\n");
-    kprintf("  uptime             - Show system uptime in ms\n");
+    kprintf("  uptime             - Show system uptime in h:m:s\n");
     kprintf("  uname              - Show OS name and version\n");
     kprintf("  echo <text>        - Print text to console\n");
     kprintf("  logout             - End current user session\n");
@@ -425,10 +425,20 @@ static void cmd_pwd(int argc, char *argv[]) {
     kprintf("%s\n", current_working_directory);
 }
 
-extern uint32_t timer_get_uptime_ms(void);
+extern uint64_t timer_get_uptime_ms(void);
 static void cmd_uptime(int argc, char *argv[]) {
-    (void)argc; (void)argv;
-    kprintf("Uptime: %u ms\n", timer_get_uptime_ms());
+    (void)argc;
+    (void)argv;
+    uint64_t ms = timer_get_uptime_ms();
+    uint64_t total_seconds = ms / 1000;
+    uint64_t hours = total_seconds / 3600;
+    uint64_t minutes = (total_seconds % 3600) / 60;
+    uint64_t seconds = total_seconds % 60;
+    kprintf("Uptime: %lu:", hours);
+    if (minutes < 10) kprintf("0");
+    kprintf("%lu:", minutes);
+    if (seconds < 10) kprintf("0");
+    kprintf("%lu\n", seconds);
 }
 
 static void cmd_uname(int argc, char *argv[]) {
